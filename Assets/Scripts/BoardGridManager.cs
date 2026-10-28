@@ -8,7 +8,7 @@ public class BoardGridManager : MonoBehaviour
     public float tileSize = 1f;
 
     [Header("Visuals")]
-    public GameObject tilePrefab; // Use a Plane or flat Cube so it lays flat horizontally
+    public GameObject tilePrefab; // Assign your flattened cube prefab here
 
     private GameObject[,] gridTiles;
 
@@ -24,13 +24,16 @@ public class BoardGridManager : MonoBehaviour
         // Center the grid relative to the BoardManager's position
         float xOffset = (width * tileSize) / 2f - (tileSize / 2f);
         float zOffset = (height * tileSize) / 2f - (tileSize / 2f);
+        
+        // Get half the height of the cube so it rests flat on the board surface
+        float tileHalfHeight = tilePrefab != null ? tilePrefab.transform.localScale.y / 2f : 0.05f;
 
         for (int x = 0; x < width; x++)
         {
             for (int z = 0; z < height; z++)
             {
                 // Calculate position relative to the board center
-                Vector3 localPos = new Vector3((x * tileSize) - xOffset, 0.01f, (z * tileSize) - zOffset);
+                Vector3 localPos = new Vector3((x * tileSize) - xOffset, tileHalfHeight, (z * tileSize) - zOffset);
                 Vector3 worldPos = transform.position + localPos;
 
                 if (tilePrefab != null)
@@ -39,8 +42,8 @@ public class BoardGridManager : MonoBehaviour
                     GameObject tile = Instantiate(tilePrefab, worldPos, Quaternion.identity, transform);
                     tile.name = $"Tile_{x}_{z}";
                     
-                    // Scale it to match tile size (leave a tiny gap for grid lines)
-                    tile.transform.localScale = new Vector3(tileSize * 0.095f, 1f, tileSize * 0.095f); // Note: 0.095 is used if using a default Unity Plane (which is 10x10 by default). If your prefab is scaled to 1x1, use 0.95f instead.
+                    // If you didn't scale the prefab manually, you can enforce it here:
+                    // tile.transform.localScale = new Vector3(tileSize * 0.95f, 0.05f, tileSize * 0.95f);
 
                     gridTiles[x, z] = tile;
                 }
@@ -53,10 +56,11 @@ public class BoardGridManager : MonoBehaviour
     {
         float xOffset = (width * tileSize) / 2f - (tileSize / 2f);
         float zOffset = (height * tileSize) / 2f - (tileSize / 2f);
+        float tileHeight = tilePrefab != null ? tilePrefab.transform.localScale.y : 0.05f;
 
         return new Vector3(
             transform.position.x + (x * tileSize) - xOffset,
-            transform.position.y + 0.1f, // Slightly above the board surface
+            transform.position.y + tileHeight, // Spawns units right on top of the tile surface
             transform.position.z + (z * tileSize) - zOffset
         );
     }
