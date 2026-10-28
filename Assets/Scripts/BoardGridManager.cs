@@ -12,11 +12,46 @@ public class BoardGridManager : MonoBehaviour
 
     private GameObject[,] gridTiles;
 
+    [Header("Units")]
+    public GameObject unitPrefab; // Drag your character prefab here in the Inspector
+
+
     void Start()
     {
         GenerateGrid();
+        SpawnUnitAt(2,3);
     }
+    // Call this method to spawn and place a unit at a specific grid coordinate
+    public GameObject SpawnUnitAt(int x, int z)
+    {
+        if (unitPrefab == null)
+        {
+            Debug.LogWarning("No Unit Prefab assigned to BoardGridManager!");
+            return null;
+        }
 
+        // Validate that coordinates are within your 6x7 bounds
+        if (x < 0 || x >= width || z < 0 || z >= height)
+        {
+            Debug.LogError($"Coordinates ({x}, {z}) are outside the grid bounds!");
+            return null;
+        }
+
+        // Get the exact world position for this tile
+        Vector3 spawnPos = GetWorldPosition(x, z);
+
+        // Instantiate the character unit
+        GameObject newUnitObj = Instantiate(unitPrefab, spawnPos, Quaternion.identity);
+        
+        // Initialize its grid tracking data
+        Unit unitScript = newUnitObj.GetComponent<Unit>();
+        if (unitScript != null)
+        {
+            unitScript.Initialize(x, z, this);
+        }
+
+        return newUnitObj;
+    }
     void GenerateGrid()
     {
         gridTiles = new GameObject[width, height];
