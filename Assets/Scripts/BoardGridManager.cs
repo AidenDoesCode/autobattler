@@ -10,16 +10,22 @@ public class BoardGridManager : MonoBehaviour
     [Header("Visuals")]
     public GameObject tilePrefab; // Assign your flattened cube prefab here
 
+    [Header("Grid Tracking")]
+    private Unit[,] unitGrid; // Tracks which unit is on which tile
     private GameObject[,] gridTiles;
+
 
     [Header("Units")]
     public GameObject unitPrefab; // Drag your character prefab here in the Inspector
 
 
+
+
     void Start()
     {
         GenerateGrid();
-        SpawnUnitAt(2,3);
+        SpawnUnitAt(0,0);
+        SpawnUnitAt(0,1);
     }
     // Call this method to spawn and place a unit at a specific grid coordinate
     public GameObject SpawnUnitAt(int x, int z)
@@ -54,6 +60,8 @@ public class BoardGridManager : MonoBehaviour
     }
     void GenerateGrid()
     {
+        //initialize grids
+        unitGrid = new Unit[width, height];
         gridTiles = new GameObject[width, height];
 
         // Center the grid relative to the BoardManager's position
@@ -99,4 +107,63 @@ public class BoardGridManager : MonoBehaviour
             transform.position.z + (z * tileSize) - zOffset
         );
     }
+
+    // Highlights a specific tile with a given color
+    public void HighlightTile(int x, int z, Color color)
+    {
+        if (gridTiles == null || x < 0 || x >= width || z < 0 || z >= height) return;
+        
+        GameObject tile = gridTiles[x, z];
+        if (tile != null)
+        {
+            Renderer rend = tile.GetComponent<Renderer>();
+            if (rend != null)
+            {
+                rend.material.color = color;
+            }
+        }
+    }
+
+    // Resets all tiles back to their default color
+    public void ResetAllTileColors(Color defaultColor)
+    {
+        if (gridTiles == null) return;
+
+        for (int x = 0; x < width; x++)
+        {
+            for (int z = 0; z < height; z++)
+            {
+                GameObject tile = gridTiles[x, z];
+                if (tile != null)
+                {
+                    Renderer rend = tile.GetComponent<Renderer>();
+                    if (rend != null)
+                    {
+                        rend.material.color = defaultColor;
+                    }
+                }
+            }
+        }
+    }
+
+    public void RegisterUnit(Unit unit, int x, int z)
+    {
+        if (unitGrid == null) unitGrid = new Unit[width, height];
+        unitGrid[x, z] = unit;
+    }
+
+    public void ClearUnitPosition(int x, int z)
+    {
+        if (unitGrid != null && x >= 0 && x < width && z >= 0 && z < height)
+        {
+            unitGrid[x, z] = null;
+        }
+    }
+
+    public bool IsTileOccupied(int x, int z)
+    {
+        if (unitGrid == null) unitGrid = new Unit[width, height];
+        return unitGrid[x, z] != null && unitGrid[x, z] != GetComponent<Unit>(); // Ignores the unit currently being dragged
+    }
+
 }

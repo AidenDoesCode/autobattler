@@ -126,6 +126,7 @@ GameObject:
   - component: {fileID: 6433266113926969960}
   - component: {fileID: 5957048942503110074}
   - component: {fileID: 7659080510622830078}
+  - component: {fileID: 3033088685870351883}
   m_Layer: 0
   m_Name: PlaceholderUnit
   m_TagString: Untagged
@@ -225,8 +226,8 @@ BoxCollider:
   m_ProvidesContacts: 0
   m_Enabled: 1
   serializedVersion: 3
-  m_Size: {x: 1, y: 1, z: 1}
-  m_Center: {x: 0, y: 0, z: 0}
+  m_Size: {x: 1, y: 32.222862, z: 1}
+  m_Center: {x: 0, y: 15.611431, z: 0}
 --- !u!114 &7659080510622830078
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -242,3 +243,15 @@ MonoBehaviour:
   unitName: Friend
   gridX: 0
   gridZ: 0
+--- !u!114 &3033088685870351883
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 4364211808588923933}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: f5ce99d1b24198545963d02434280c5f, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::UnitDragHandler
