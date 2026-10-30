@@ -1,8 +1,13 @@
-<ui:UXML xmlns:ui="UnityEngine.UIElements" editor-extension-mode="False">
-    <Style src="project://database/Assets/UI%20Toolkit/HealthBar.uss?fileID=7433441132597879392&amp;guid=b5b8298998d09d641a228f610168a8de&amp;type=3#HealthBar"/>
-    <ui:VisualElement name="root-anchor" style="position: relative; left: auto; top: auto; width: 100%; height: 100%; justify-content: center; align-items: center; align-self: auto; align-content: center; flex-grow: 0;">
+<ui:UXML xmlns:ui="UnityEngine.UIElements">
+    <ui:VisualElement name="root-anchor" style="flex-grow: 1; align-items: center; justify-content: center; overflow: visible;">
+        
+        <!-- Health Bar (Stays perfectly centered so it doesn't sink into the mesh) -->
         <ui:VisualElement name="bar-background" style="width: 80px; height: 10px; background-color: rgba(0, 0, 0, 0.75); border-radius: 3px; padding: 1px;">
-            <ui:VisualElement name="bar-fill" style="width: 100%; height: 100%; background-color: rgb(46, 204, 113); border-radius: 2px;"/>
+            <ui:VisualElement name="bar-fill" style="width: 100%; height: 100%; background-color: rgb(46, 204, 113); border-radius: 2px;" />
         </ui:VisualElement>
+
+        <!-- Popup Container (Anchored absolutely above the center line, ignoring layout flow) -->
+        <ui:VisualElement name="popup-container" style="position: absolute; bottom: 50%; margin-bottom: 10px; width: 120px; height: 60px; overflow: visible;" />
+
     </ui:VisualElement>
 </ui:UXML>

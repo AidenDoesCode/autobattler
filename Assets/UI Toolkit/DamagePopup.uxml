@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<ui:UXML xmlns:ui="UnityEngine.UIElements">
+    <ui:VisualElement name="root-anchor" style="flex-grow: 1; align-items: center; justify-content: center;">
+        <!-- Container where damage/heal labels will spawn and float -->
+        <ui:VisualElement name="popup-container" style="position: absolute; bottom: 20px; width: 100px; height: 60px; align-items: center; justify-content: flex-end;" />
+
+        <!-- Health Bar -->
+        <ui:VisualElement name="bar-background" style="width: 80px; height: 10px; background-color: rgba(0, 0, 0, 0.75); border-radius: 3px; padding: 1px;">
+            <ui:VisualElement name="bar-fill" style="width: 100%; height: 100%; background-color: rgb(46, 204, 113); border-radius: 2px;" />
+        </ui:VisualElement>
+    </ui:VisualElement>
+</ui:UXML>

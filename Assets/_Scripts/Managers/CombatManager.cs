@@ -29,10 +29,10 @@ public class CombatManager : MonoBehaviour
 
         if (isRoundEnding) return;
 
-        // Fetch living active units on the board
+        // Fetch active living units on the board
         allUnits = new List<Unit>(Object.FindObjectsByType<Unit>(FindObjectsInactive.Exclude));
 
-        // 1. Check if either team has been eliminated
+        // Check if either team has been eliminated
         int playerCount = 0;
         int enemyCount = 0;
 
@@ -52,7 +52,7 @@ public class CombatManager : MonoBehaviour
             return;
         }
 
-        // 2. Execute unit combat turns
+        // Execute unit combat turns
         for (int i = 0; i < allUnits.Count; i++)
         {
             Unit currentUnit = allUnits[i];
@@ -95,7 +95,6 @@ public class CombatManager : MonoBehaviour
     {
         attackCooldowns.Clear();
 
-        // Clear the entire board grid so surviving and dead units can re-register cleanly
         if (gridManager != null)
         {
             for (int x = 0; x < gridManager.width; x++)
@@ -107,26 +106,23 @@ public class CombatManager : MonoBehaviour
             }
         }
 
-        // Find ALL units including disabled/defeated ones
+        // Reset player units, destroy remaining enemies
         Unit[] units = Object.FindObjectsByType<Unit>(FindObjectsInactive.Include);
-
         foreach (var unit in units)
         {
             if (unit == null) continue;
 
             if (unit.isPlayerTeam)
             {
-                // Revive, reactivate, and reset to pre-battle positions
                 unit.ResetToPlanningPosition(gridManager);
             }
             else
             {
-                // Clean up enemy units from the previous wave
                 Destroy(unit.gameObject);
             }
         }
 
-        // Spawn a fresh wave of enemies for the next round
+        // Spawn next wave
         if (gridManager != null)
         {
             gridManager.SpawnEnemyWave();
@@ -178,25 +174,25 @@ public class CombatManager : MonoBehaviour
         string attackerName = attacker.data.unitName;
         string targetName = target.data.unitName;
 
+        // Visual attack punch / lunge
+        attacker.PlayAttackAnimation(target.transform.position);
+
         if (attacker.data.archetype == UnitArchetype.Support)
         {
-            // Support: Heal target ally
+            // Passes attacker.data.attackDamage to Heal()
             target.Heal(attacker.data.attackDamage);
             Debug.Log($"[HEAL] {attackerName} healed {targetName} for {attacker.data.attackDamage} HP!");
         }
         else
         {
-            // Attack: Deal damage to target enemy
+            // Passes attacker.data.attackDamage to TakeDamage()
             target.TakeDamage(attacker.data.attackDamage);
             Debug.Log($"[ATTACK] {attackerName} attacked {targetName} for {attacker.data.attackDamage} DMG! ({target.currentHealth}/{target.data.maxHealth})");
 
             if (target.currentHealth <= 0)
             {
-                Debug.Log($"[DEFEATED] {targetName} was eliminated!");
-
                 if (attackCooldowns.ContainsKey(target)) attackCooldowns.Remove(target);
                 gridManager.ClearUnitPosition(target.gridX, target.gridZ);
-
                 target.gameObject.SetActive(false);
             }
         }

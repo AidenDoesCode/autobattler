@@ -350,11 +350,12 @@ MonoBehaviour:
   gridX: 0
   gridZ: 0
   isPlayerTeam: 1
+  healthBar: {fileID: 0}
+  damagePopupPrefab: {fileID: 179954315046238412, guid: 0a71df090d72017499f091f8be9672ac, type: 3}
   currentHealth: 0
   lastValidX: 0
   lastValidZ: 0
   lastValidWorldPos: {x: 0, y: 0, z: 0}
-  healthBar: {fileID: 0}
   isMoving: 0
 --- !u!114 &-8786597433029107165
 MonoBehaviour:
