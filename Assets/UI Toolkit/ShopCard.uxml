@@ -1,0 +1,10 @@
+<ui:UXML xmlns:ui="UnityEngine.UIElements" editor-extension-mode="False">
+    <ui:Button name="card-button" style="width: 130px; height: 110px; margin: 0 6px; padding: 6px; background-color: rgb(35, 39, 42); border-width: 2px; border-color: rgb(85, 95, 105); border-radius: 6px; justify-content: space-between; align-items: center; -unity-font-definition: url(&quot;project://database/Assets/Fonts/Breathe%20Fire%20SDF.asset?fileID=11400000&amp;guid=c39650e3b8e1f2843880ad70447d86e5&amp;type=2#Breathe Fire SDF&quot;);">
+        <ui:VisualElement style="width: 100%; flex-direction: row; justify-content: space-between;">
+            <ui:Label name="unit-tier-label" text="★" style="font-size: 14px; color: rgb(255, 215, 0);"/>
+            <ui:Label name="unit-cost-label" text="1g" style="font-size: 14px; -unity-font-style: bold; color: rgb(255, 215, 0);"/>
+        </ui:VisualElement>
+        <ui:Label name="unit-name-label" text="Warrior" style="font-size: 15px; -unity-font-style: bold; color: rgb(255, 255, 255); margin-top: 4px;"/>
+        <ui:Label name="unit-archetype-label" text="Melee" style="font-size: 12px; color: rgb(170, 180, 190); margin-bottom: 4px;"/>
+    </ui:Button>
+</ui:UXML>

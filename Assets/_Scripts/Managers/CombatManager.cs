@@ -6,59 +6,171 @@ public class CombatManager : MonoBehaviour
 {
     private GameManager gameManager;
     private BoardGridManager gridManager;
-    private BattleUIController battleUI;
     private List<Unit> allUnits = new List<Unit>();
+
+    // Keyed directly by the Unit instance to avoid deprecated GetInstanceID in Unity 6
     private Dictionary<Unit, float> attackCooldowns = new Dictionary<Unit, float>();
 
     private bool isRoundEnding = false;
 
     void Start()
     {
-        gameManager = Object.FindAnyObjectByType<GameManager>();
-        gridManager = Object.FindAnyObjectByType<BoardGridManager>();
-        battleUI = Object.FindAnyObjectByType<BattleUIController>();
+        gameManager = UnityEngine.Object.FindAnyObjectByType<GameManager>();
+        gridManager = UnityEngine.Object.FindAnyObjectByType<BoardGridManager>();
     }
 
     void Update()
     {
+        // Only run combat logic while in the Combat state
         if (gameManager == null || gameManager.currentState != GameManager.GameState.Combat)
         {
-            isRoundEnding = false;
             return;
         }
 
         if (isRoundEnding) return;
 
-        // Fetch active living units on the board
-        allUnits = new List<Unit>(Object.FindObjectsByType<Unit>(FindObjectsInactive.Exclude));
+        // Fetch active units on the board (ignoring bench units)
+        CollectCombatUnits();
 
-        // Check if either team has been eliminated
-        int playerCount = 0;
-        int enemyCount = 0;
-
-        for (int i = 0; i < allUnits.Count; i++)
+        // Check victory/defeat conditions
+        if (CheckRoundCompletion())
         {
-            Unit u = allUnits[i];
-            if (u != null && u.currentHealth > 0)
-            {
-                if (u.isPlayerTeam) playerCount++;
-                else enemyCount++;
-            }
-        }
-
-        if (playerCount == 0 || enemyCount == 0)
-        {
-            StartCoroutine(EndRoundRoutine(playerCount > 0));
             return;
         }
 
-        // Execute unit combat turns
+        // Execute turn for each unit
         for (int i = 0; i < allUnits.Count; i++)
         {
-            Unit currentUnit = allUnits[i];
-            if (currentUnit != null && currentUnit.gameObject.activeInHierarchy)
+            if (i < allUnits.Count && allUnits[i] != null)
             {
-                ExecuteUnitTurn(currentUnit);
+                ExecuteUnitCombat(allUnits[i]);
+            }
+        }
+    }
+
+    private void CollectCombatUnits()
+    {
+        allUnits.Clear();
+        // Uses FindObjectsByType with only FindObjectsInactive to avoid deprecated FindObjectsSortMode
+        Unit[] foundUnits = UnityEngine.Object.FindObjectsByType<Unit>(FindObjectsInactive.Exclude);
+
+        foreach (var u in foundUnits)
+        {
+            // Bench units are excluded from combat
+            if (u.isOnBench) continue;
+
+            if (u.gameObject.activeInHierarchy && u.currentHealth > 0)
+            {
+                allUnits.Add(u);
+            }
+        }
+    }
+
+    private bool CheckRoundCompletion()
+    {
+        int activePlayerUnits = 0;
+        int activeEnemyUnits = 0;
+
+        foreach (var u in allUnits)
+        {
+            if (u == null || u.isOnBench || u.currentHealth <= 0) continue;
+
+            if (u.isPlayerTeam) activePlayerUnits++;
+            else activeEnemyUnits++;
+        }
+
+        // Safety: If nobody is deployed on either side, cleanly bail out
+        if (activePlayerUnits == 0 && activeEnemyUnits == 0)
+        {
+            Debug.LogWarning("[CombatManager] No units deployed on the board. Returning to planning.");
+            if (gameManager != null)
+            {
+                gameManager.ReturnToPlanning();
+            }
+            return true;
+        }
+
+        // Enemy army eliminated
+        if (activeEnemyUnits == 0)
+        {
+            StartCoroutine(EndRoundRoutine(playerWon: true));
+            return true;
+        }
+
+        // Player army eliminated
+        if (activePlayerUnits == 0)
+        {
+            StartCoroutine(EndRoundRoutine(playerWon: false));
+            return true;
+        }
+
+        return false;
+    }
+
+    private void ExecuteUnitCombat(Unit unit)
+    {
+        if (unit == null || unit.data == null || unit.currentHealth <= 0) return;
+
+        // 1. Find valid target (Enemies for Melee/Ranged, Allies for Support)
+        Unit target = unit.FindTarget(allUnits);
+        if (target == null) return;
+
+        // 2. Measure distance
+        float distance = Vector3.Distance(unit.transform.position, target.transform.position);
+
+        // Turn to smoothly face target
+        Vector3 targetDirection = (target.transform.position - unit.transform.position);
+        targetDirection.y = 0;
+        if (targetDirection != Vector3.zero)
+        {
+            unit.transform.rotation = Quaternion.LookRotation(targetDirection);
+        }
+
+        // 3. Movement or Attack
+        if (distance > unit.data.attackRange)
+        {
+            float step = unit.data.moveSpeed * Time.deltaTime;
+            unit.transform.position = Vector3.MoveTowards(unit.transform.position, target.transform.position, step);
+        }
+        else
+        {
+            // In range: check attack cooldown before executing
+            float nextAvailableTime = attackCooldowns.ContainsKey(unit) ? attackCooldowns[unit] : 0f;
+
+            if (Time.time >= nextAvailableTime)
+            {
+                PerformCombatAction(unit, target);
+
+                float attackDelay = unit.data.attackSpeed > 0 ? (1f / unit.data.attackSpeed) : 1f;
+                attackCooldowns[unit] = Time.time + attackDelay;
+            }
+        }
+    }
+
+    private void PerformCombatAction(Unit attacker, Unit target)
+    {
+        string attackerName = attacker.data.unitName;
+        string targetName = target.data.unitName;
+        int actionValue = attacker.GetEffectiveAttackDamage();
+
+        if (attacker.data.archetype == UnitArchetype.Support)
+        {
+            target.Heal(actionValue);
+            Debug.Log($"[HEAL] {attackerName} healed {targetName} for {actionValue} HP!");
+        }
+        else
+        {
+            target.TakeDamage(actionValue);
+            Debug.Log($"[ATTACK] {attackerName} attacked {targetName} for {actionValue} DMG! ({target.currentHealth}/{target.GetEffectiveMaxHealth()})");
+
+            if (target.currentHealth <= 0)
+            {
+                Debug.Log($"[DEFEATED] {targetName} was eliminated!");
+
+                if (attackCooldowns.ContainsKey(target)) attackCooldowns.Remove(target);
+                gridManager.ClearUnitPosition(target.gridX, target.gridZ);
+
+                target.gameObject.SetActive(false);
             }
         }
     }
@@ -73,128 +185,46 @@ public class CombatManager : MonoBehaviour
         }
         else
         {
-            Debug.Log("<color=red>DEFEAT!</color> Your team was wiped out.");
+            Debug.Log("<color=red>DEFEAT!</color> Your army was eliminated.");
+        }
+
+        // Payout gold, streak bonuses, and interest via EconomyManager
+        if (EconomyManager.Instance != null)
+        {
+            EconomyManager.Instance.ProcessRoundEndIncome(playerWon);
         }
 
         yield return new WaitForSeconds(1.5f);
 
-        if (gameManager != null)
+        // Include inactive units without passing SortMode
+        Unit[] units = UnityEngine.Object.FindObjectsByType<Unit>(FindObjectsInactive.Include);
+        
+        foreach (var u in units)
         {
-            gameManager.ReturnToPlanning();
-        }
-
-        if (battleUI != null)
-        {
-            battleUI.ResetButtonText();
-        }
-
-        ResetUnitsAfterRound();
-    }
-
-    private void ResetUnitsAfterRound()
-    {
-        attackCooldowns.Clear();
-
-        if (gridManager != null)
-        {
-            for (int x = 0; x < gridManager.width; x++)
+            if (u.isPlayerTeam)
             {
-                for (int z = 0; z < gridManager.height; z++)
-                {
-                    gridManager.ClearUnitPosition(x, z);
-                }
-            }
-        }
-
-        // Reset player units, destroy remaining enemies
-        Unit[] units = Object.FindObjectsByType<Unit>(FindObjectsInactive.Include);
-        foreach (var unit in units)
-        {
-            if (unit == null) continue;
-
-            if (unit.isPlayerTeam)
-            {
-                unit.ResetToPlanningPosition(gridManager);
+                // Defeated player units are re-enabled, healed, and snapped back
+                u.ResetToPlanningPosition(gridManager);
             }
             else
             {
-                Destroy(unit.gameObject);
+                // Clean up remaining enemy units
+                Destroy(u.gameObject);
             }
         }
 
-        // Spawn next wave
+        // Spawn next wave of enemies
         if (gridManager != null)
         {
             gridManager.SpawnEnemyWave();
         }
-    }
 
-    private void ExecuteUnitTurn(Unit unit)
-    {
-        if (unit == null || unit.data == null || unit.currentHealth <= 0 || unit.isMoving) return;
+        attackCooldowns.Clear();
+        isRoundEnding = false;
 
-        Unit target = unit.FindTarget(allUnits);
-        if (target == null) return;
-
-        int rangeInTiles = Mathf.Max(1, Mathf.FloorToInt(unit.data.attackRange));
-        int tileDistance = Mathf.Max(Mathf.Abs(unit.gridX - target.gridX), Mathf.Abs(unit.gridZ - target.gridZ));
-
-        Vector3 lookDir = target.transform.position - unit.transform.position;
-        lookDir.y = 0;
-        if (lookDir != Vector3.zero) unit.transform.rotation = Quaternion.LookRotation(lookDir);
-
-        if (tileDistance > rangeInTiles)
+        if (gameManager != null)
         {
-            GridPoint start = new GridPoint(unit.gridX, unit.gridZ);
-            GridPoint goal = new GridPoint(target.gridX, target.gridZ);
-
-            List<GridPoint> path = gridManager.FindPath(start, goal, rangeInTiles);
-
-            if (path != null && path.Count > 0)
-            {
-                GridPoint nextStep = path[0];
-                gridManager.MoveUnitOnGrid(unit, unit.gridX, unit.gridZ, nextStep.x, nextStep.z);
-                StartCoroutine(unit.MoveToTileRoutine(nextStep.x, nextStep.z, gridManager));
-            }
-        }
-        else
-        {
-            float nextAvailableTime = attackCooldowns.ContainsKey(unit) ? attackCooldowns[unit] : 0f;
-            if (Time.time >= nextAvailableTime)
-            {
-                PerformCombatAction(unit, target);
-                float attackDelay = unit.data.attackSpeed > 0 ? (1f / unit.data.attackSpeed) : 1f;
-                attackCooldowns[unit] = Time.time + attackDelay;
-            }
-        }
-    }
-
-    private void PerformCombatAction(Unit attacker, Unit target)
-    {
-        string attackerName = attacker.data.unitName;
-        string targetName = target.data.unitName;
-
-        // Visual attack punch / lunge
-        attacker.PlayAttackAnimation(target.transform.position);
-
-        if (attacker.data.archetype == UnitArchetype.Support)
-        {
-            // Passes attacker.data.attackDamage to Heal()
-            target.Heal(attacker.data.attackDamage);
-            Debug.Log($"[HEAL] {attackerName} healed {targetName} for {attacker.data.attackDamage} HP!");
-        }
-        else
-        {
-            // Passes attacker.data.attackDamage to TakeDamage()
-            target.TakeDamage(attacker.data.attackDamage);
-            Debug.Log($"[ATTACK] {attackerName} attacked {targetName} for {attacker.data.attackDamage} DMG! ({target.currentHealth}/{target.data.maxHealth})");
-
-            if (target.currentHealth <= 0)
-            {
-                if (attackCooldowns.ContainsKey(target)) attackCooldowns.Remove(target);
-                gridManager.ClearUnitPosition(target.gridX, target.gridZ);
-                target.gameObject.SetActive(false);
-            }
+            gameManager.ReturnToPlanning();
         }
     }
 }

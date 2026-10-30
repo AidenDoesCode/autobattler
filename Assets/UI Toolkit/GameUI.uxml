@@ -1,6 +1,6 @@
 <ui:UXML xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:ui="UnityEngine.UIElements" xmlns:uie="UnityEditor.UIElements" noNamespaceSchemaLocation="../../UIElementsSchema/UIElements.xsd" editor-extension-mode="False">
     <Style src="project://database/Assets/UI%20Toolkit/GameStyle.uss?fileID=7433441132597879392&amp;guid=9be4878c1cb1c084d9ee1e9000e32a4f&amp;type=3#GameStyle"/>
     <ui:VisualElement name="Container" picking-mode="Ignore" style="flex-grow: 1;">
-        <ui:Button text="Start Battle" name="StartBattleButton" class="button" style="height: 116px; width: 296px;"/>
+        <ui:Button text="Start Battle" name="StartBattleButton" class="button" style="height: 85px; width: 229px; left: 0; top: auto; bottom: 712px; position: absolute; align-content: center; align-items: stretch; justify-content: flex-start; align-self: center; -unity-font-definition: url(&quot;project://database/Assets/Fonts/Breathe%20Fire%20SDF.asset?fileID=11400000&amp;guid=c39650e3b8e1f2843880ad70447d86e5&amp;type=2#Breathe Fire SDF&quot;); margin-top: 5px; margin-right: 5px; margin-bottom: 5px; margin-left: 5px; -unity-text-align: middle-center; transform-origin: center;"/>
     </ui:VisualElement>
 </ui:UXML>

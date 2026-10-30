@@ -1,12 +1,5 @@
-<?xml version="1.0" encoding="utf-8"?>
-<ui:UXML xmlns:ui="UnityEngine.UIElements">
-    <ui:VisualElement name="root-anchor" style="flex-grow: 1; align-items: center; justify-content: center;">
-        <!-- Container where damage/heal labels will spawn and float -->
-        <ui:VisualElement name="popup-container" style="position: absolute; bottom: 20px; width: 100px; height: 60px; align-items: center; justify-content: flex-end;" />
-
-        <!-- Health Bar -->
-        <ui:VisualElement name="bar-background" style="width: 80px; height: 10px; background-color: rgba(0, 0, 0, 0.75); border-radius: 3px; padding: 1px;">
-            <ui:VisualElement name="bar-fill" style="width: 100%; height: 100%; background-color: rgb(46, 204, 113); border-radius: 2px;" />
-        </ui:VisualElement>
+<ui:UXML xmlns:ui="UnityEngine.UIElements" editor-extension-mode="False">
+    <ui:VisualElement name="popup-container" style="flex-grow: 1; align-items: center; justify-content: center; width: 80px; height: 40px; -unity-font-definition: url(&quot;project://database/Assets/Fonts/Breathe%20Fire%20SDF.asset?fileID=11400000&amp;guid=c39650e3b8e1f2843880ad70447d86e5&amp;type=2#Breathe Fire SDF&quot;);">
+        <ui:Label name="popup-text" text="0" style="font-size: 26px; -unity-font-style: bold; color: rgb(255, 60, 60); -unity-text-outline-width: 1px; -unity-text-outline-color: rgba(0, 0, 0, 0.9);"/>
     </ui:VisualElement>
 </ui:UXML>

@@ -11,8 +11,17 @@ public class Unit : MonoBehaviour
     public int gridX;
     public int gridZ;
 
+    [Header("Bench Coordinates")]
+    public bool isOnBench = false;
+    public int benchSlotIndex = -1;
+
     [Header("Team Alignment")]
     public bool isPlayerTeam = true;
+
+    [Header("Star Level Progression")]
+    public int starLevel = 1; // 1, 2, or 3 Stars
+    public int scaledMaxHealth;
+    public int scaledAttackDamage;
 
     [Header("Visual Components")]
     public UnitHealthBarUI healthBar;
@@ -25,6 +34,7 @@ public class Unit : MonoBehaviour
 
     private Renderer unitRenderer;
     private Color originalColor = Color.white;
+    private Vector3 basePrefabScale = Vector3.one;
     private Coroutine attackRoutine;
     private Coroutine flinchRoutine;
 
@@ -35,6 +45,9 @@ public class Unit : MonoBehaviour
             healthBar = GetComponentInChildren<UnitHealthBarUI>();
         }
 
+        // Cache the prefab's original natural scale so we don't blow it up
+        basePrefabScale = transform.localScale;
+
         unitRenderer = GetComponentInChildren<Renderer>();
         if (unitRenderer != null && unitRenderer.material.HasProperty("_Color"))
         {
@@ -44,31 +57,83 @@ public class Unit : MonoBehaviour
 
     void Start()
     {
+        InitializeStats();
+        UpdateHealthUI();
+    }
+
+    void OnDisable()
+    {
+        // Stop any running flinch and restore original color immediately
+        if (flinchRoutine != null)
+        {
+            StopCoroutine(flinchRoutine);
+            flinchRoutine = null;
+        }
+        RestoreOriginalColor();
+    }
+
+    public void InitializeStats()
+    {
         if (data != null)
         {
-            currentHealth = data.maxHealth;
+            if (scaledMaxHealth <= 0) scaledMaxHealth = data.maxHealth;
+            if (scaledAttackDamage <= 0) scaledAttackDamage = data.attackDamage;
+            currentHealth = scaledMaxHealth;
         }
-
-        UpdateHealthUI();
     }
 
     public void Initialize(int x, int z, BoardGridManager gridManager)
     {
         gridX = x;
         gridZ = z;
-        SaveValidPosition(x, z, gridManager.GetWorldPosition(x, z));
+        SaveValidPosition(x, z, gridManager.GetWorldPosition(x, z), onBench: false, benchIndex: -1);
         transform.position = lastValidWorldPos;
 
+        InitializeStats();
         UpdateHealthUI();
     }
 
-    public void SaveValidPosition(int x, int z, Vector3 worldPos)
+    public void SaveValidPosition(int x, int z, Vector3 worldPos, bool onBench = false, int benchIndex = -1)
     {
         lastValidX = x;
         lastValidZ = z;
         lastValidWorldPos = worldPos;
         gridX = x;
         gridZ = z;
+        isOnBench = onBench;
+        benchSlotIndex = benchIndex;
+    }
+
+    /// <summary>
+    /// Upgrades the unit to the next star level, scaling its combat attributes and mesh size relative to its base prefab scale.
+    /// </summary>
+    public void UpgradeStarLevel(int newStarLevel)
+    {
+        starLevel = newStarLevel;
+
+        // Multiply stats: 1.8x for 2-Star, 3.2x for 3-Star
+        float statMultiplier = (starLevel == 2) ? 1.8f : 3.2f;
+        scaledMaxHealth = Mathf.RoundToInt(data.maxHealth * statMultiplier);
+        scaledAttackDamage = Mathf.RoundToInt(data.attackDamage * statMultiplier);
+        currentHealth = scaledMaxHealth;
+
+        // Subtle scale bump: +8% for 2-Star, +16% for 3-Star relative to original prefab scale
+        float visualScaleMultiplier = 1f + (starLevel - 1) * 0.08f;
+        transform.localScale = basePrefabScale * visualScaleMultiplier;
+
+        Debug.Log($"<color=yellow>[Star-Up]</color> {data.unitName} upgraded to {starLevel}-Star! (HP: {scaledMaxHealth}, DMG: {scaledAttackDamage})");
+
+        UpdateHealthUI();
+    }
+
+    public int GetEffectiveAttackDamage()
+    {
+        return scaledAttackDamage > 0 ? scaledAttackDamage : (data != null ? data.attackDamage : 10);
+    }
+
+    public int GetEffectiveMaxHealth()
+    {
+        return scaledMaxHealth > 0 ? scaledMaxHealth : (data != null ? data.maxHealth : 100);
     }
 
     public void PlayAttackAnimation(Vector3 targetPosition)
@@ -86,7 +151,6 @@ public class Unit : MonoBehaviour
         float halfDuration = 0.08f;
         float elapsed = 0f;
 
-        // Step forward
         while (elapsed < halfDuration)
         {
             transform.position = Vector3.Lerp(startPos, lungePos, elapsed / halfDuration);
@@ -95,7 +159,6 @@ public class Unit : MonoBehaviour
         }
 
         elapsed = 0f;
-        // Snap back
         while (elapsed < halfDuration)
         {
             transform.position = Vector3.Lerp(lungePos, startPos, elapsed / halfDuration);
@@ -113,19 +176,24 @@ public class Unit : MonoBehaviour
 
         SpawnPopup(damage, isHeal: false);
 
-        if (flinchRoutine != null) StopCoroutine(flinchRoutine);
-        flinchRoutine = StartCoroutine(FlinchRoutine());
+        // Only flinch if the unit is still alive; if dead, reset immediately
+        if (currentHealth > 0)
+        {
+            if (flinchRoutine != null) StopCoroutine(flinchRoutine);
+            flinchRoutine = StartCoroutine(FlinchRoutine());
+        }
+        else
+        {
+            RestoreOriginalColor();
+        }
     }
 
     public void Heal(int amount)
     {
-        if (data != null)
-        {
-            currentHealth = Mathf.Min(data.maxHealth, currentHealth + amount);
-            UpdateHealthUI();
+        currentHealth = Mathf.Min(GetEffectiveMaxHealth(), currentHealth + amount);
+        UpdateHealthUI();
 
-            SpawnPopup(amount, isHeal: true);
-        }
+        SpawnPopup(amount, isHeal: true);
     }
 
     private void SpawnPopup(int amount, bool isHeal)
@@ -142,6 +210,15 @@ public class Unit : MonoBehaviour
         {
             unitRenderer.material.color = Color.red;
             yield return new WaitForSeconds(0.1f);
+            RestoreOriginalColor();
+        }
+        flinchRoutine = null;
+    }
+
+    private void RestoreOriginalColor()
+    {
+        if (unitRenderer != null && unitRenderer.material.HasProperty("_Color"))
+        {
             unitRenderer.material.color = originalColor;
         }
     }
@@ -151,7 +228,7 @@ public class Unit : MonoBehaviour
         if (healthBar != null && data != null)
         {
             healthBar.SetTeam(isPlayerTeam);
-            healthBar.UpdateHealth(currentHealth, data.maxHealth);
+            healthBar.UpdateHealth(currentHealth, GetEffectiveMaxHealth());
         }
     }
 
@@ -160,23 +237,9 @@ public class Unit : MonoBehaviour
         gameObject.SetActive(true);
         isMoving = false;
 
-        if (data != null)
-        {
-            currentHealth = data.maxHealth;
-        }
-
-        // 1. Force the color back to normal if a flinch was interrupted
-        if (flinchRoutine != null) StopCoroutine(flinchRoutine);
-        if (unitRenderer != null && unitRenderer.material.HasProperty("_Color"))
-        {
-            unitRenderer.material.color = originalColor;
-        }
-
-        // 2. Clear any stranded text
-        if (healthBar != null)
-        {
-            healthBar.ClearPopups();
-        }
+        // Ensure clean color and health reset
+        RestoreOriginalColor();
+        currentHealth = GetEffectiveMaxHealth();
 
         transform.rotation = Quaternion.identity;
         gridX = lastValidX;
@@ -185,7 +248,14 @@ public class Unit : MonoBehaviour
 
         if (gridManager != null)
         {
-            gridManager.RegisterUnit(this, gridX, gridZ);
+            if (isOnBench)
+            {
+                gridManager.RegisterBenchUnit(this, benchSlotIndex);
+            }
+            else
+            {
+                gridManager.RegisterUnit(this, gridX, gridZ);
+            }
         }
 
         UpdateHealthUI();
@@ -222,7 +292,7 @@ public class Unit : MonoBehaviour
 
             if (data.archetype == UnitArchetype.Support)
             {
-                if (other.isPlayerTeam == this.isPlayerTeam && other.currentHealth < other.data.maxHealth)
+                if (other.isPlayerTeam == this.isPlayerTeam && other.currentHealth < other.GetEffectiveMaxHealth())
                 {
                     float dist = Vector3.Distance(transform.position, other.transform.position);
                     if (dist < minDistance)

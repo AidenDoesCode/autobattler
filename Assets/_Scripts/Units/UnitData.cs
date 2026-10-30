@@ -7,6 +7,9 @@ public class UnitData : ScriptableObject
 {
     public string unitName;
     public UnitArchetype archetype;
+
+    [Header("Economy")]
+    public int goldCost = 1; // Tier 1 = 1g, Tier 2 = 2g, etc.
     
     [Header("Combat Stats")]
     public int maxHealth = 100;

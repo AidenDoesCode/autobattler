@@ -40,9 +40,9 @@ public class UnitHealthBarUI : MonoBehaviour
         {
             panelRenderer.UnregisterUIReloadCallback(OnUIReload);
         }
-        
-        // Destroy stuck labels when the unit turns off
-        ClearPopups(); 
+
+        // Clean up any remaining floating labels when unit disables
+        ClearPopups();
     }
 
     private void OnUIReload(PanelRenderer renderer, VisualElement rootElement, int version)
@@ -60,13 +60,6 @@ public class UnitHealthBarUI : MonoBehaviour
         }
     }
 
-    public void ClearPopups()
-    {
-        if (popupContainer != null)
-        {
-            popupContainer.Clear();
-        }
-    }
     void LateUpdate()
     {
         if (mainCamera != null)
@@ -85,6 +78,12 @@ public class UnitHealthBarUI : MonoBehaviour
     {
         cachedPercentage = maxHealth > 0 ? Mathf.Clamp01((float)currentHealth / maxHealth) * 100f : 0f;
         if (uiReady) ApplyBar();
+    }
+
+    // Alias for compatibility
+    public void SetHealth(int currentHealth, int maxHealth)
+    {
+        UpdateHealth(currentHealth, maxHealth);
     }
 
     private void ApplyBar()
@@ -110,21 +109,35 @@ public class UnitHealthBarUI : MonoBehaviour
         Label label = new Label(isHeal ? $"+{amount}" : amount.ToString());
         label.style.position = Position.Absolute;
         label.style.unityFontStyleAndWeight = FontStyle.Bold;
-        label.style.fontSize = 22;
+        label.style.fontSize = 20;
         label.style.color = isHeal ? new Color(0.2f, 0.9f, 0.3f, 1f) : new Color(1f, 0.25f, 0.25f, 1f);
 
-        // Explicit width, height, and alignment so World Space doesn't collapse it
+        // Explicit width and height so world-space text does not collapse
         label.style.width = 60;
         label.style.height = 30;
         label.style.unityTextAlign = TextAnchor.MiddleCenter;
 
-        // Position at the bottom-center of popup-container with slight random horizontal drift
+        // Horizontally center inside the 120px popup container with slight random variation
         float randomX = Random.Range(-15f, 15f);
-        label.style.left = (120f - 60f) * 0.5f + randomX; // Centered inside 120px container
+        label.style.left = (120f - 60f) * 0.5f + randomX;
         label.style.bottom = 0f;
 
         popupContainer.Add(label);
         StartCoroutine(AnimatePopupRoutine(label));
+    }
+
+    // Alias for compatibility
+    public void ShowCombatText(int amount, bool isHeal)
+    {
+        ShowCombatPopup(amount, isHeal);
+    }
+
+    public void ClearPopups()
+    {
+        if (popupContainer != null)
+        {
+            popupContainer.Clear();
+        }
     }
 
     private IEnumerator AnimatePopupRoutine(Label label)

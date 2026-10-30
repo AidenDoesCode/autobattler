@@ -1,0 +1,102 @@
+<ui:UXML xmlns:ui="UnityEngine.UIElements" xmlns:uie="UnityEditor.UIElements">
+    <ui:VisualElement name="shop-root" style="flex-grow: 1; justify-content: space-between; pointer-events: box-none;">
+        
+        <!-- TOP HUD: Gold, Interest, Streaks, and Board Capacity -->
+        <ui:VisualElement name="top-bar" style="flex-direction: row; justify-content: space-between; align-items: center; padding: 10px 24px; background-color: rgba(18, 18, 22, 0.9); border-bottom-width: 2px; border-bottom-color: rgba(241, 196, 15, 0.4);">
+            <ui:VisualElement style="flex-direction: row; align-items: center;">
+                <ui:Label name="gold-label" text="10g" style="font-size: 24px; -unity-font-style: bold; color: rgb(241, 196, 15); margin-right: 20px;" />
+                <ui:Label name="interest-label" text="(+1g Interest)" style="font-size: 15px; color: rgb(189, 195, 199); margin-right: 20px;" />
+                <ui:Label name="streak-label" text="Streak: 0" style="font-size: 15px; color: rgb(52, 152, 219);" />
+            </ui:VisualElement>
+
+            <ui:Label name="board-cap-label" text="Units: 0 / 1" style="font-size: 18px; -unity-font-style: bold; color: rgb(255, 255, 255);" />
+        </ui:VisualElement>
+
+        <!-- BOTTOM DOCK: Shop Controls & Offers -->
+        <ui:VisualElement name="shop-panel" style="position: relative; background-color: rgba(18, 18, 24, 0.96); border-top-width: 2px; border-top-color: rgba(255, 255, 255, 0.15); padding: 12px 20px; flex-direction: row; align-items: center; justify-content: space-between;">
+            
+            <!-- LEFT CONTROLS: Level, XP Status, Buy XP, and Reroll -->
+            <ui:VisualElement name="shop-controls-left" style="flex-direction: column; justify-content: center; align-items: center; margin-right: 16px; width: 140px;">
+                
+                <!-- Level & XP Counter -->
+                <ui:VisualElement name="xp-info-container" style="flex-direction: row; justify-content: space-between; width: 100%; margin-bottom: 6px;">
+                    <ui:Label name="level-label" text="Lvl 1" style="font-size: 14px; -unity-font-style: bold; color: rgb(241, 196, 15);" />
+                    <ui:Label name="xp-label" text="0 / 2 XP" style="font-size: 13px; color: rgb(189, 195, 199);" />
+                </ui:VisualElement>
+
+                <!-- Buy XP Button -->
+                <ui:Button name="buy-xp-btn" text="Buy XP (4g)" style="width: 100%; height: 38px; margin-bottom: 8px; background-color: rgb(41, 128, 185); color: rgb(255, 255, 255); -unity-font-style: bold; border-radius: 4px; border-width: 0;" />
+
+                <!-- Reroll Button -->
+                <ui:Button name="reroll-btn" text="Reroll (2g)" style="width: 100%; height: 38px; background-color: rgb(211, 84, 0); color: rgb(255, 255, 255); -unity-font-style: bold; border-radius: 4px; border-width: 0;" />
+            </ui:VisualElement>
+
+            <!-- CENTER OFFERS: 5 Shop Unit Cards -->
+            <ui:VisualElement name="card-container" style="flex-direction: row; flex-grow: 1; justify-content: center;">
+                
+                <!-- Card Slot 0 -->
+                <ui:VisualElement name="card-slot-0" style="width: 130px; height: 110px; margin: 0 6px; padding: 6px; background-color: rgb(32, 35, 42); border-width: 2px; border-color: rgb(70, 80, 95); border-radius: 6px; justify-content: space-between;">
+                    <ui:VisualElement style="flex-direction: row; justify-content: space-between;">
+                        <ui:Label name="unit-name" text="Unit" style="font-size: 13px; -unity-font-style: bold; color: rgb(255, 255, 255);" />
+                        <ui:Label name="unit-cost" text="1g" style="font-size: 13px; -unity-font-style: bold; color: rgb(241, 196, 15);" />
+                    </ui:VisualElement>
+                    <ui:Label name="unit-archetype" text="Melee" style="font-size: 11px; color: rgb(160, 175, 190); align-self: center;" />
+                    <ui:Button name="buy-card-btn" text="Buy" style="height: 26px; font-size: 12px; -unity-font-style: bold; background-color: rgb(39, 174, 96); color: white; border-radius: 3px; border-width: 0;" />
+                </ui:VisualElement>
+
+                <!-- Card Slot 1 -->
+                <ui:VisualElement name="card-slot-1" style="width: 130px; height: 110px; margin: 0 6px; padding: 6px; background-color: rgb(32, 35, 42); border-width: 2px; border-color: rgb(70, 80, 95); border-radius: 6px; justify-content: space-between;">
+                    <ui:VisualElement style="flex-direction: row; justify-content: space-between;">
+                        <ui:Label name="unit-name" text="Unit" style="font-size: 13px; -unity-font-style: bold; color: rgb(255, 255, 255);" />
+                        <ui:Label name="unit-cost" text="1g" style="font-size: 13px; -unity-font-style: bold; color: rgb(241, 196, 15);" />
+                    </ui:VisualElement>
+                    <ui:Label name="unit-archetype" text="Melee" style="font-size: 11px; color: rgb(160, 175, 190); align-self: center;" />
+                    <ui:Button name="buy-card-btn" text="Buy" style="height: 26px; font-size: 12px; -unity-font-style: bold; background-color: rgb(39, 174, 96); color: white; border-radius: 3px; border-width: 0;" />
+                </ui:VisualElement>
+
+                <!-- Card Slot 2 -->
+                <ui:VisualElement name="card-slot-2" style="width: 130px; height: 110px; margin: 0 6px; padding: 6px; background-color: rgb(32, 35, 42); border-width: 2px; border-color: rgb(70, 80, 95); border-radius: 6px; justify-content: space-between;">
+                    <ui:VisualElement style="flex-direction: row; justify-content: space-between;">
+                        <ui:Label name="unit-name" text="Unit" style="font-size: 13px; -unity-font-style: bold; color: rgb(255, 255, 255);" />
+                        <ui:Label name="unit-cost" text="1g" style="font-size: 13px; -unity-font-style: bold; color: rgb(241, 196, 15);" />
+                    </ui:VisualElement>
+                    <ui:Label name="unit-archetype" text="Melee" style="font-size: 11px; color: rgb(160, 175, 190); align-self: center;" />
+                    <ui:Button name="buy-card-btn" text="Buy" style="height: 26px; font-size: 12px; -unity-font-style: bold; background-color: rgb(39, 174, 96); color: white; border-radius: 3px; border-width: 0;" />
+                </ui:VisualElement>
+
+                <!-- Card Slot 3 -->
+                <ui:VisualElement name="card-slot-3" style="width: 130px; height: 110px; margin: 0 6px; padding: 6px; background-color: rgb(32, 35, 42); border-width: 2px; border-color: rgb(70, 80, 95); border-radius: 6px; justify-content: space-between;">
+                    <ui:VisualElement style="flex-direction: row; justify-content: space-between;">
+                        <ui:Label name="unit-name" text="Unit" style="font-size: 13px; -unity-font-style: bold; color: rgb(255, 255, 255);" />
+                        <ui:Label name="unit-cost" text="1g" style="font-size: 13px; -unity-font-style: bold; color: rgb(241, 196, 15);" />
+                    </ui:VisualElement>
+                    <ui:Label name="unit-archetype" text="Melee" style="font-size: 11px; color: rgb(160, 175, 190); align-self: center;" />
+                    <ui:Button name="buy-card-btn" text="Buy" style="height: 26px; font-size: 12px; -unity-font-style: bold; background-color: rgb(39, 174, 96); color: white; border-radius: 3px; border-width: 0;" />
+                </ui:VisualElement>
+
+                <!-- Card Slot 4 -->
+                <ui:VisualElement name="card-slot-4" style="width: 130px; height: 110px; margin: 0 6px; padding: 6px; background-color: rgb(32, 35, 42); border-width: 2px; border-color: rgb(70, 80, 95); border-radius: 6px; justify-content: space-between;">
+                    <ui:VisualElement style="flex-direction: row; justify-content: space-between;">
+                        <ui:Label name="unit-name" text="Unit" style="font-size: 13px; -unity-font-style: bold; color: rgb(255, 255, 255);" />
+                        <ui:Label name="unit-cost" text="1g" style="font-size: 13px; -unity-font-style: bold; color: rgb(241, 196, 15);" />
+                    </ui:VisualElement>
+                    <ui:Label name="unit-archetype" text="Melee" style="font-size: 11px; color: rgb(160, 175, 190); align-self: center;" />
+                    <ui:Button name="buy-card-btn" text="Buy" style="height: 26px; font-size: 12px; -unity-font-style: bold; background-color: rgb(39, 174, 96); color: white; border-radius: 3px; border-width: 0;" />
+                </ui:VisualElement>
+
+            </ui:VisualElement>
+
+            <!-- RIGHT CONTROLS: Lock Shop Button -->
+            <ui:VisualElement name="shop-controls-right" style="margin-left: 16px; width: 80px; align-items: center; justify-content: center;">
+                <ui:Button name="lock-shop-btn" text="Lock" style="width: 80px; height: 84px; background-color: rgb(45, 52, 60); color: rgb(236, 240, 241); font-size: 14px; -unity-font-style: bold; border-radius: 6px; border-width: 2px; border-color: rgb(70, 80, 95);" />
+            </ui:VisualElement>
+
+            <!-- DYNAMIC SELL BANNER OVERLAY -->
+            <ui:VisualElement name="sell-banner" style="position: absolute; left: 0; right: 0; top: 0; bottom: 0; background-color: rgba(192, 57, 43, 0.95); justify-content: center; align-items: center; display: none;">
+                <ui:Label name="sell-label" text="DROP HERE OR PRESS 'E' TO SELL" style="font-size: 20px; -unity-font-style: bold; color: rgb(255, 255, 255);" />
+            </ui:VisualElement>
+
+        </ui:VisualElement>
+
+    </ui:VisualElement>
+</ui:UXML>
