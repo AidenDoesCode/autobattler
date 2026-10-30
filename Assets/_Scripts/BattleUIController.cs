@@ -102,4 +102,12 @@ public class BattleUIController : MonoBehaviour
             }
         }
     }
+
+    public void ResetButtonText()
+    {
+        if (startBattleButton != null)
+        {
+            startBattleButton.text = "Start Battle";
+        }
+    }
 }

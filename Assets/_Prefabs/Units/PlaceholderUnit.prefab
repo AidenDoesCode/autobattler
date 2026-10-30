@@ -125,8 +125,8 @@ GameObject:
   - component: {fileID: 1223578977678285430}
   - component: {fileID: 6433266113926969960}
   - component: {fileID: 5957048942503110074}
-  - component: {fileID: 7659080510622830078}
   - component: {fileID: 3033088685870351883}
+  - component: {fileID: -8786597433029107165}
   m_Layer: 0
   m_Name: PlaceholderUnit
   m_TagString: Untagged
@@ -228,21 +228,6 @@ BoxCollider:
   serializedVersion: 3
   m_Size: {x: 1, y: 32.222862, z: 1}
   m_Center: {x: 0, y: 15.611431, z: 0}
---- !u!114 &7659080510622830078
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 4364211808588923933}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 4cdaa3c15450f46bf98b4084b6ee4774, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: Assembly-CSharp::Unit
-  unitName: Friend
-  gridX: 0
-  gridZ: 0
 --- !u!114 &3033088685870351883
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -252,6 +237,26 @@ MonoBehaviour:
   m_GameObject: {fileID: 4364211808588923933}
   m_Enabled: 1
   m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: f5ce99d1b24198545963d02434280c5f, type: 3}
+  m_Script: {fileID: 11500000, guid: d0b2795fd3b013f4cbd2b0513873e860, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::UnitDragHandler
+  data: {fileID: 11400000, guid: 9819d95b25be78649a87bbcf9267ab3b, type: 2}
+  gridX: 0
+  gridZ: 0
+  isPlayerTeam: 1
+  currentHealth: 0
+  lastValidX: 0
+  lastValidZ: 0
+  lastValidWorldPos: {x: 0, y: 0, z: 0}
+--- !u!114 &-8786597433029107165
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 4364211808588923933}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: b04b00d81ae5b5f4c9394de847f8a898, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::UnitDragHandler
