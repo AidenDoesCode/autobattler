@@ -1,0 +1,14 @@
+:root {
+}
+
+.button {
+}
+
+.label1 {
+}
+
+.header {
+    font-size: 40px;
+    -unity-font-style: bold;
+    -unity-text-outline-color: rgb(255, 255, 255);
+}

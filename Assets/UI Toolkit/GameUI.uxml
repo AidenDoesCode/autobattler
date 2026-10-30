@@ -1,0 +1,6 @@
+<ui:UXML xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:ui="UnityEngine.UIElements" xmlns:uie="UnityEditor.UIElements" noNamespaceSchemaLocation="../../UIElementsSchema/UIElements.xsd" editor-extension-mode="False">
+    <Style src="project://database/Assets/UI%20Toolkit/GameStyle.uss?fileID=7433441132597879392&amp;guid=9be4878c1cb1c084d9ee1e9000e32a4f&amp;type=3#GameStyle"/>
+    <ui:VisualElement name="Container" picking-mode="Ignore" style="flex-grow: 1;">
+        <ui:Button text="Start Battle" name="StartBattleButton" class="button" style="height: 116px; width: 296px;"/>
+    </ui:VisualElement>
+</ui:UXML>

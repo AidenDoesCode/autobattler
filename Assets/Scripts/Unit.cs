@@ -9,13 +9,28 @@ public class Unit : MonoBehaviour
     public int gridX;
     public int gridZ;
 
-    // Function to update the unit's position visually based on grid coordinates
+    // Track the last valid locked-in position
+    [HideInInspector] public int lastValidX;
+    [HideInInspector] public int lastValidZ;
+    [HideInInspector] public Vector3 lastValidWorldPos;
+
     public void Initialize(int x, int z, BoardGridManager gridManager)
     {
         gridX = x;
         gridZ = z;
+        
+        SaveValidPosition(x, z, gridManager.GetWorldPosition(x, z));
 
         // Snap to the exact world position provided by the BoardGridManager
-        transform.position = gridManager.GetWorldPosition(gridX, gridZ);
+        transform.position = lastValidWorldPos;
+    }
+
+    public void SaveValidPosition(int x, int z, Vector3 worldPos)
+    {
+        lastValidX = x;
+        lastValidZ = z;
+        lastValidWorldPos = worldPos;
+        gridX = x;
+        gridZ = z;
     }
 }

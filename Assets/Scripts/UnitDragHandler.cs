@@ -28,10 +28,14 @@ public class UnitDragHandler : MonoBehaviour
 
     void OnMouseDown()
     {
+        if (GameManager.Instance != null && GameManager.Instance.currentState != GameManager.GameState.Planning)
+        {
+            return; // Block dragging during combat
+        }
+
         isDragging = true;
         boardYLevel = transform.position.y;
 
-        // Clear old position slot when picking up
         if (gridManager != null)
         {
             gridManager.ClearUnitPosition(unitScript.gridX, unitScript.gridZ);
@@ -100,9 +104,12 @@ public class UnitDragHandler : MonoBehaviour
         {
             gridManager.ResetAllTileColors(Color.white);
 
-            // Check if another unit is already on this tile
+            // Rule 1: Must be in player's deployment zone (rows 0-1)
+            // Rule 2: Cannot be occupied by another unit
+            bool isInBounds = gridManager.IsInPlayerZone(closestX, closestZ);
             bool isOccupied = gridManager.IsTileOccupied(closestX, closestZ);
-            Color highlightColor = isOccupied ? Color.red : Color.green;
+
+            Color highlightColor = (!isInBounds || isOccupied) ? Color.red : Color.green;
 
             gridManager.HighlightTile(closestX, closestZ, highlightColor);
 
@@ -113,7 +120,7 @@ public class UnitDragHandler : MonoBehaviour
 
     void SnapToClosestTile()
     {
-        if (gridManager == null) return;
+        if (gridManager == null || unitScript == null) return;
 
         int closestX = 0;
         int closestZ = 0;
@@ -136,14 +143,24 @@ public class UnitDragHandler : MonoBehaviour
             }
         }
 
-        // Optional rule: If space is occupied, you could snap back to original position, 
-        // but for now it will update coordinates and register itself
-        transform.position = gridManager.GetWorldPosition(closestX, closestZ);
-        
-        if (unitScript != null)
+        // Validate both occupancy and player zone restrictions
+        bool isInBounds = gridManager.IsInPlayerZone(closestX, closestZ);
+        bool isOccupied = gridManager.IsTileOccupied(closestX, closestZ);
+
+        if (!isInBounds || isOccupied)
         {
-            unitScript.gridX = closestX;
-            unitScript.gridZ = closestZ;
+            // REJECT MOVE: Snap back to last valid position
+            transform.position = unitScript.lastValidWorldPos;
+            gridManager.RegisterUnit(unitScript, unitScript.lastValidX, unitScript.lastValidZ);
+            Debug.Log("Invalid placement! Must stay in your zone and unoccupied.");
+        }
+        else
+        {
+            // ACCEPT MOVE
+            Vector3 newPos = gridManager.GetWorldPosition(closestX, closestZ);
+            transform.position = newPos;
+            
+            unitScript.SaveValidPosition(closestX, closestZ, newPos);
             gridManager.RegisterUnit(unitScript, closestX, closestZ);
         }
         

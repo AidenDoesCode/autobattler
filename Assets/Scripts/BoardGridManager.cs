@@ -8,7 +8,7 @@ public class BoardGridManager : MonoBehaviour
     public float tileSize = 1f;
 
     [Header("Visuals")]
-    public GameObject tilePrefab; // Assign your flattened cube prefab here
+    public GameObject tilePrefab; //drag tile prefab to spawn that tile
 
     [Header("Grid Tracking")]
     private Unit[,] unitGrid; // Tracks which unit is on which tile
@@ -18,15 +18,25 @@ public class BoardGridManager : MonoBehaviour
     [Header("Units")]
     public GameObject unitPrefab; // Drag your character prefab here in the Inspector
 
-
+    [Header("Team Setup Limits")]
+    public int playerMaxRow = 1; // Rows 0 and 1 belong to the player during planning
+    public int enemyMinRow = 5;  // Rows 5 and 6 belong to the enemy
 
 
     void Start()
     {
         GenerateGrid();
-        SpawnUnitAt(0,0);
-        SpawnUnitAt(0,1);
+        
+        // Spawn Player Friend units on the bottom rows (e.g., Row 0)
+        SpawnUnitAt(1, 0);
+        SpawnUnitAt(3, 0);
+
+        // Spawn Enemy units on the top rows (e.g., Row 6)
+        SpawnUnitAt(1, 6);
+        SpawnUnitAt(3, 6);
     }
+
+
     // Call this method to spawn and place a unit at a specific grid coordinate
     public GameObject SpawnUnitAt(int x, int z)
     {
@@ -164,6 +174,18 @@ public class BoardGridManager : MonoBehaviour
     {
         if (unitGrid == null) unitGrid = new Unit[width, height];
         return unitGrid[x, z] != null && unitGrid[x, z] != GetComponent<Unit>(); // Ignores the unit currently being dragged
+    }
+
+    // Check if a coordinate is within the player's deployment zone
+    public bool IsInPlayerZone(int x, int z)
+    {
+        return z >= 0 && z <= playerMaxRow && x >= 0 && x < width;
+    }
+
+    // Check if a coordinate is within the enemy zone
+    public bool IsInEnemyZone(int x, int z)
+    {
+        return z >= enemyMinRow && z < height && x >= 0 && x < width;
     }
 
 }
