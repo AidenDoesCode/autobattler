@@ -180,12 +180,14 @@ public class CombatManager : MonoBehaviour
 
         if (attacker.data.archetype == UnitArchetype.Support)
         {
-            target.currentHealth = Mathf.Min(target.data.maxHealth, target.currentHealth + attacker.data.attackDamage);
+            // Support: Heal target ally
+            target.Heal(attacker.data.attackDamage);
             Debug.Log($"[HEAL] {attackerName} healed {targetName} for {attacker.data.attackDamage} HP!");
         }
         else
         {
-            target.currentHealth -= attacker.data.attackDamage;
+            // Attack: Deal damage to target enemy
+            target.TakeDamage(attacker.data.attackDamage);
             Debug.Log($"[ATTACK] {attackerName} attacked {targetName} for {attacker.data.attackDamage} DMG! ({target.currentHealth}/{target.data.maxHealth})");
 
             if (target.currentHealth <= 0)
@@ -195,7 +197,6 @@ public class CombatManager : MonoBehaviour
                 if (attackCooldowns.ContainsKey(target)) attackCooldowns.Remove(target);
                 gridManager.ClearUnitPosition(target.gridX, target.gridZ);
 
-                // Disable instead of destroying so the unit can reset next round
                 target.gameObject.SetActive(false);
             }
         }

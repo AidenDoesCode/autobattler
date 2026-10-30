@@ -19,8 +19,43 @@ public class Unit : MonoBehaviour
     [HideInInspector] public int lastValidZ;
     [HideInInspector] public Vector3 lastValidWorldPos;
 
+    [Header("Visual Components")]
+    public UnitHealthBarUI healthBar;
+
 
     [HideInInspector] public bool isMoving = false;
+
+    void Awake()
+    {
+        if (healthBar == null)
+        {
+            healthBar = GetComponentInChildren<UnitHealthBarUI>();
+        }
+    }
+
+    public void TakeDamage(int damage)
+    {
+        currentHealth = Mathf.Max(0, currentHealth - damage);
+        UpdateHealthUI();
+    }
+
+    public void Heal(int amount)
+    {
+        if (data != null)
+        {
+            currentHealth = Mathf.Min(data.maxHealth, currentHealth + amount);
+            UpdateHealthUI();
+        }
+    }
+
+    public void UpdateHealthUI()
+    {
+        if (healthBar != null && data != null)
+        {
+            healthBar.SetTeam(isPlayerTeam);
+            healthBar.UpdateHealth(currentHealth, data.maxHealth);
+        }
+    }
 
     void Start()
     {
