@@ -26,10 +26,10 @@ public class BoardGridManager : MonoBehaviour
     [Header("Bench Configuration")]
     public int benchSlotCount = 8;
     [Tooltip("Offset distance behind row 0 where the bench sits")]
-    public float benchZDistance = 1.35f; 
+    public float benchZDistance = 1.35f;
 
     [Header("Team Board Limits")]
-    public int maxBoardUnits = 3; // Active units allowed on combat grid
+    public int maxBoardUnits = 1; // Scaled by EconomyManager level
 
     private GameObject[,] gridTiles;
     private Unit[,] unitGrid;
@@ -37,10 +37,6 @@ public class BoardGridManager : MonoBehaviour
     // Bench Data
     private GameObject[] benchTiles;
     private Unit[] benchUnits;
-
-    [Header("Enemy Spawning")]
-    public GameObject defaultEnemyPrefab; // Drag your Enemy Unit Prefab here in the Inspector
-    public int enemyMinRow = 5;
 
     void Start()
     {
@@ -74,32 +70,6 @@ public class BoardGridManager : MonoBehaviour
         }
     }
 
-    /// <summary>
-    /// Deregisters and clears a unit from whichever slot it occupies (board or bench).
-    /// </summary>
-    public void UnregisterUnit(Unit unit)
-    {
-        if (unit == null) return;
-
-        if (unit.isOnBench)
-        {
-            if (benchUnits != null && unit.benchSlotIndex >= 0 && unit.benchSlotIndex < benchSlotCount)
-            {
-                benchUnits[unit.benchSlotIndex] = null;
-            }
-        }
-        else
-        {
-            if (unitGrid != null && unit.gridX >= 0 && unit.gridX < width && unit.gridZ >= 0 && unit.gridZ < height)
-            {
-                if (unitGrid[unit.gridX, unit.gridZ] == unit)
-                {
-                    unitGrid[unit.gridX, unit.gridZ] = null;
-                }
-            }
-        }
-    }
-
     void GenerateBench()
     {
         benchTiles = new GameObject[benchSlotCount];
@@ -119,8 +89,7 @@ public class BoardGridManager : MonoBehaviour
             {
                 GameObject tile = Instantiate(tilePrefab, worldPos, Quaternion.identity, transform);
                 tile.name = $"BenchTile_{i}";
-                
-                // Optional visual tint to distinguish bench from combat board
+
                 Renderer r = tile.GetComponent<Renderer>();
                 if (r != null) r.material.color = new Color(0.75f, 0.75f, 0.85f);
 
@@ -183,6 +152,19 @@ public class BoardGridManager : MonoBehaviour
         return count;
     }
 
+    public int GetFirstEmptyBenchSlot()
+    {
+        if (benchUnits == null) return -1;
+        for (int i = 0; i < benchSlotCount; i++)
+        {
+            if (benchUnits[i] == null)
+            {
+                return i;
+            }
+        }
+        return -1;
+    }
+
     public bool IsInPlayerZone(int x, int z)
     {
         return z >= 0 && z <= maxPlayerRow && x >= 0 && x < width;
@@ -207,6 +189,11 @@ public class BoardGridManager : MonoBehaviour
         {
             unitGrid[x, z] = unit;
         }
+
+        if (SynergyManager.Instance != null)
+        {
+            SynergyManager.Instance.RecalculateSynergies();
+        }
     }
 
     public void ClearUnitPosition(int x, int z)
@@ -214,6 +201,11 @@ public class BoardGridManager : MonoBehaviour
         if (unitGrid != null && x >= 0 && x < width && z >= 0 && z < height)
         {
             unitGrid[x, z] = null;
+        }
+
+        if (SynergyManager.Instance != null)
+        {
+            SynergyManager.Instance.RecalculateSynergies();
         }
     }
 
@@ -224,6 +216,11 @@ public class BoardGridManager : MonoBehaviour
         {
             benchUnits[slotIndex] = unit;
         }
+
+        if (SynergyManager.Instance != null)
+        {
+            SynergyManager.Instance.RecalculateSynergies();
+        }
     }
 
     public void ClearBenchPosition(int slotIndex)
@@ -231,6 +228,30 @@ public class BoardGridManager : MonoBehaviour
         if (benchUnits != null && slotIndex >= 0 && slotIndex < benchSlotCount)
         {
             benchUnits[slotIndex] = null;
+        }
+
+        if (SynergyManager.Instance != null)
+        {
+            SynergyManager.Instance.RecalculateSynergies();
+        }
+    }
+
+    public void UnregisterUnit(Unit unit)
+    {
+        if (unit == null) return;
+
+        if (unit.isOnBench && unit.benchSlotIndex >= 0)
+        {
+            ClearBenchPosition(unit.benchSlotIndex);
+        }
+        else
+        {
+            ClearUnitPosition(unit.gridX, unit.gridZ);
+        }
+
+        if (SynergyManager.Instance != null)
+        {
+            SynergyManager.Instance.RecalculateSynergies();
         }
     }
 
@@ -297,6 +318,8 @@ public class BoardGridManager : MonoBehaviour
         unit.gridZ = toZ;
     }
 
+    // --- Pathfinding ---
+
     public List<GridPoint> FindPath(GridPoint start, GridPoint target, int rangeInTiles)
     {
         if (unitGrid == null) unitGrid = new Unit[width, height];
@@ -354,69 +377,4 @@ public class BoardGridManager : MonoBehaviour
         path.Reverse();
         return path;
     }
-
-    public void SpawnEnemyWave()
-    {
-        SpawnEnemyWave(defaultEnemyPrefab, 2);
-    }
-
-    public void SpawnEnemyWave(GameObject enemyPrefab, int count)
-    {
-        GameObject prefabToSpawn = enemyPrefab != null ? enemyPrefab : defaultEnemyPrefab;
-        if (prefabToSpawn == null)
-        {
-            Debug.LogWarning("[BoardGridManager] Cannot spawn enemy wave: No enemy prefab assigned!");
-            return;
-        }
-
-        int spawned = 0;
-        for (int z = height - 1; z >= enemyMinRow && spawned < count; z--)
-        {
-            for (int x = 0; x < width && spawned < count; x++)
-            {
-                if (!IsTileOccupied(x, z))
-                {
-                    Vector3 spawnPos = GetWorldPosition(x, z);
-                    GameObject enemyObj = Instantiate(prefabToSpawn, spawnPos, Quaternion.identity);
-                    Unit enemyUnit = enemyObj.GetComponent<Unit>();
-
-                    if (enemyUnit != null)
-                    {
-                        enemyUnit.isPlayerTeam = false;
-                        enemyUnit.Initialize(x, z, this);
-                        RegisterUnit(enemyUnit, x, z);
-                    }
-
-                    spawned++;
-                }
-            }
-        }
-    }
-
-    public bool IsTileOccupied(int x, int z)
-    {
-        if (unitGrid == null || x < 0 || x >= width || z < 0 || z >= height) return false;
-        return unitGrid[x, z] != null;
-    }
-
-    /// <summary>
-    /// Finds the index of the first unoccupied bench slot. Returns -1 if the bench is full.
-    /// </summary>
-    public int GetFirstEmptyBenchSlot()
-    {
-        if (benchUnits == null) return -1;
-
-        for (int i = 0; i < benchSlotCount; i++)
-        {
-            if (benchUnits[i] == null)
-            {
-                return i;
-            }
-        }
-        return -1;
-    }
-
-    
-
-
 }

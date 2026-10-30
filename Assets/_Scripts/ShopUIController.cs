@@ -15,6 +15,17 @@ public class ShopUIController : MonoBehaviour
     private Button buyXpButton;
     private Button lockShopButton;
 
+    // Synergy UI Elements
+    private VisualElement synergyBody;
+    private Button toggleSynergyBtn;
+    private VisualElement meleeBox;
+    private Label meleeCountLabel;
+    private VisualElement rangedBox;
+    private Label rangedCountLabel;
+    private VisualElement supportBox;
+    private Label supportCountLabel;
+    private bool isSynergyCollapsed = false;
+
     private VisualElement[] cardSlots;
     private Label[] nameLabels;
     private Label[] costLabels;
@@ -42,6 +53,8 @@ public class ShopUIController : MonoBehaviour
         {
             UpdateLockUI(ShopManager.Instance.isLocked);
         }
+
+        UpdateSynergyUI();
     }
 
     void OnEnable()
@@ -86,6 +99,12 @@ public class ShopUIController : MonoBehaviour
             ShopManager.Instance.OnLockStateChanged -= UpdateLockUI;
             ShopManager.Instance.OnLockStateChanged += UpdateLockUI;
         }
+
+        if (SynergyManager.Instance != null)
+        {
+            SynergyManager.Instance.OnSynergiesUpdated -= UpdateSynergyUI;
+            SynergyManager.Instance.OnSynergiesUpdated += UpdateSynergyUI;
+        }
     }
 
     private void UnsubscribeEvents()
@@ -101,6 +120,11 @@ public class ShopUIController : MonoBehaviour
             ShopManager.Instance.OnShopGenerated -= PopulateShopCards;
             ShopManager.Instance.OnUnitPurchased -= ClearCardSlot;
             ShopManager.Instance.OnLockStateChanged -= UpdateLockUI;
+        }
+
+        if (SynergyManager.Instance != null)
+        {
+            SynergyManager.Instance.OnSynergiesUpdated -= UpdateSynergyUI;
         }
     }
 
@@ -129,6 +153,22 @@ public class ShopUIController : MonoBehaviour
         buyXpButton = root.Q<Button>("buy-xp-btn");
         lockShopButton = root.Q<Button>("lock-shop-btn");
 
+        // Synergy Elements Query
+        synergyBody = root.Q<VisualElement>("synergy-body");
+        toggleSynergyBtn = root.Q<Button>("toggle-synergy-btn");
+        meleeBox = root.Q<VisualElement>("melee-trait-box");
+        meleeCountLabel = root.Q<Label>("melee-count-label");
+        rangedBox = root.Q<VisualElement>("ranged-trait-box");
+        rangedCountLabel = root.Q<Label>("ranged-count-label");
+        supportBox = root.Q<VisualElement>("support-trait-box");
+        supportCountLabel = root.Q<Label>("support-count-label");
+
+        if (toggleSynergyBtn != null)
+        {
+            toggleSynergyBtn.clicked -= OnToggleSynergyClicked;
+            toggleSynergyBtn.clicked += OnToggleSynergyClicked;
+        }
+
         if (rerollButton != null)
         {
             rerollButton.clicked -= OnRerollClicked;
@@ -147,7 +187,6 @@ public class ShopUIController : MonoBehaviour
             lockShopButton.clicked += OnLockShopClicked;
         }
 
-        // Query shop card elements (5 slots)
         int size = ShopManager.Instance != null ? ShopManager.Instance.shopSize : 5;
         cardSlots = new VisualElement[size];
         nameLabels = new Label[size];
@@ -191,6 +230,57 @@ public class ShopUIController : MonoBehaviour
                 PopulateShopCards(ShopManager.Instance.currentShopUnits);
             }
         }
+
+        UpdateSynergyUI();
+    }
+
+    private void OnToggleSynergyClicked()
+    {
+        if (synergyBody == null) return;
+        isSynergyCollapsed = !isSynergyCollapsed;
+        synergyBody.style.display = isSynergyCollapsed ? DisplayStyle.None : DisplayStyle.Flex;
+        if (toggleSynergyBtn != null) toggleSynergyBtn.text = isSynergyCollapsed ? "▲" : "▼";
+    }
+
+    private void UpdateSynergyUI()
+    {
+        if (SynergyManager.Instance == null) return;
+
+        int melee = SynergyManager.Instance.meleeCount;
+        int meleeTier = SynergyManager.Instance.meleeTier;
+        if (meleeCountLabel != null) meleeCountLabel.text = $"{melee} / {(meleeTier >= 1 ? 4 : 2)}";
+        SetTraitVisual(meleeBox, meleeTier);
+
+        int ranged = SynergyManager.Instance.rangedCount;
+        int rangedTier = SynergyManager.Instance.rangedTier;
+        if (rangedCountLabel != null) rangedCountLabel.text = $"{ranged} / {(rangedTier >= 1 ? 4 : 2)}";
+        SetTraitVisual(rangedBox, rangedTier);
+
+        int support = SynergyManager.Instance.supportCount;
+        int supportTier = SynergyManager.Instance.supportTier;
+        if (supportCountLabel != null) supportCountLabel.text = $"{support} / 2";
+        SetTraitVisual(supportBox, supportTier);
+    }
+
+    private void SetTraitVisual(VisualElement box, int tier)
+    {
+        if (box == null) return;
+
+        if (tier == 0)
+        {
+            box.style.borderLeftColor = new StyleColor(new Color(0.45f, 0.45f, 0.45f));
+            box.style.backgroundColor = new StyleColor(new Color(0.15f, 0.17f, 0.20f, 0.6f));
+        }
+        else if (tier == 1)
+        {
+            box.style.borderLeftColor = new StyleColor(new Color(0.85f, 0.55f, 0.15f));
+            box.style.backgroundColor = new StyleColor(new Color(0.25f, 0.20f, 0.10f, 0.8f));
+        }
+        else
+        {
+            box.style.borderLeftColor = new StyleColor(new Color(0.95f, 0.80f, 0.20f));
+            box.style.backgroundColor = new StyleColor(new Color(0.35f, 0.30f, 0.05f, 0.85f));
+        }
     }
 
     private void OnRerollClicked()
@@ -224,7 +314,7 @@ public class ShopUIController : MonoBehaviour
         if (isLocked)
         {
             lockShopButton.text = "Locked";
-            lockShopButton.style.backgroundColor = new StyleColor(new Color(0.85f, 0.65f, 0.13f)); // Gold/Amber
+            lockShopButton.style.backgroundColor = new StyleColor(new Color(0.85f, 0.65f, 0.13f));
             lockShopButton.style.borderTopColor = new StyleColor(new Color(1f, 0.84f, 0f));
             lockShopButton.style.borderBottomColor = new StyleColor(new Color(1f, 0.84f, 0f));
             lockShopButton.style.borderLeftColor = new StyleColor(new Color(1f, 0.84f, 0f));
@@ -234,7 +324,7 @@ public class ShopUIController : MonoBehaviour
         else
         {
             lockShopButton.text = "Lock";
-            lockShopButton.style.backgroundColor = new StyleColor(new Color(0.18f, 0.20f, 0.24f)); // Neutral dark slate
+            lockShopButton.style.backgroundColor = new StyleColor(new Color(0.18f, 0.20f, 0.24f));
             lockShopButton.style.borderTopColor = new StyleColor(new Color(0.27f, 0.31f, 0.37f));
             lockShopButton.style.borderBottomColor = new StyleColor(new Color(0.27f, 0.31f, 0.37f));
             lockShopButton.style.borderLeftColor = new StyleColor(new Color(0.27f, 0.31f, 0.37f));

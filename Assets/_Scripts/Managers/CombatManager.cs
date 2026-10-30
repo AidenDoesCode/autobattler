@@ -4,146 +4,113 @@ using System.Collections.Generic;
 
 public class CombatManager : MonoBehaviour
 {
-    private GameManager gameManager;
+    public static CombatManager Instance { get; private set; }
+
     private BoardGridManager gridManager;
-    private List<Unit> allUnits = new List<Unit>();
-
-    // Keyed directly by the Unit instance to avoid deprecated GetInstanceID in Unity 6
     private Dictionary<Unit, float> attackCooldowns = new Dictionary<Unit, float>();
+    private bool inCombat = false;
 
-    private bool isRoundEnding = false;
+    void Awake()
+    {
+        if (Instance != null && Instance != this)
+        {
+            Destroy(gameObject);
+            return;
+        }
+        Instance = this;
+    }
 
     void Start()
     {
-        gameManager = UnityEngine.Object.FindAnyObjectByType<GameManager>();
         gridManager = UnityEngine.Object.FindAnyObjectByType<BoardGridManager>();
     }
 
-    void Update()
+    public void StartCombat()
     {
-        // Only run combat logic while in the Combat state
-        if (gameManager == null || gameManager.currentState != GameManager.GameState.Combat)
+        if (inCombat) return;
+        inCombat = true;
+        attackCooldowns.Clear();
+
+        List<Unit> playerUnits = GetUnitsByTeam(isPlayer: true);
+
+        // Apply Synergy Buffs at round start
+        if (SynergyManager.Instance != null)
         {
-            return;
+            SynergyManager.Instance.ApplyCombatSynergies(playerUnits);
         }
 
-        if (isRoundEnding) return;
-
-        // Fetch active units on the board (ignoring bench units)
-        CollectCombatUnits();
-
-        // Check victory/defeat conditions
-        if (CheckRoundCompletion())
-        {
-            return;
-        }
-
-        // Execute turn for each unit
-        for (int i = 0; i < allUnits.Count; i++)
-        {
-            if (i < allUnits.Count && allUnits[i] != null)
-            {
-                ExecuteUnitCombat(allUnits[i]);
-            }
-        }
+        StartCoroutine(CombatLoopRoutine());
     }
 
-    private void CollectCombatUnits()
+    public void EndCombat()
     {
-        allUnits.Clear();
-        // Uses FindObjectsByType with only FindObjectsInactive to avoid deprecated FindObjectsSortMode
-        Unit[] foundUnits = UnityEngine.Object.FindObjectsByType<Unit>(FindObjectsInactive.Exclude);
+        inCombat = false;
+        StopAllCoroutines();
 
-        foreach (var u in foundUnits)
+        // Stop recurring synergy coroutines
+        if (SynergyManager.Instance != null)
         {
-            // Bench units are excluded from combat
-            if (u.isOnBench) continue;
-
-            if (u.gameObject.activeInHierarchy && u.currentHealth > 0)
-            {
-                allUnits.Add(u);
-            }
+            SynergyManager.Instance.StopCombatSynergies();
         }
+
+        attackCooldowns.Clear();
     }
 
-    private bool CheckRoundCompletion()
+    private IEnumerator CombatLoopRoutine()
     {
-        int activePlayerUnits = 0;
-        int activeEnemyUnits = 0;
-
-        foreach (var u in allUnits)
+        while (inCombat)
         {
-            if (u == null || u.isOnBench || u.currentHealth <= 0) continue;
+            Unit[] allUnits = UnityEngine.Object.FindObjectsByType<Unit>();
+            List<Unit> activeUnits = new List<Unit>();
 
-            if (u.isPlayerTeam) activePlayerUnits++;
-            else activeEnemyUnits++;
-        }
-
-        // Safety: If nobody is deployed on either side, cleanly bail out
-        if (activePlayerUnits == 0 && activeEnemyUnits == 0)
-        {
-            Debug.LogWarning("[CombatManager] No units deployed on the board. Returning to planning.");
-            if (gameManager != null)
+            foreach (var u in allUnits)
             {
-                gameManager.ReturnToPlanning();
+                if (u != null && u.gameObject.activeInHierarchy && u.currentHealth > 0 && !u.isOnBench)
+                {
+                    activeUnits.Add(u);
+                }
             }
-            return true;
-        }
 
-        // Enemy army eliminated
-        if (activeEnemyUnits == 0)
-        {
-            StartCoroutine(EndRoundRoutine(playerWon: true));
-            return true;
-        }
+            // Check win/loss condition
+            bool hasPlayer = activeUnits.Exists(u => u.isPlayerTeam);
+            bool hasEnemy = activeUnits.Exists(u => !u.isPlayerTeam);
 
-        // Player army eliminated
-        if (activePlayerUnits == 0)
-        {
-            StartCoroutine(EndRoundRoutine(playerWon: false));
-            return true;
-        }
-
-        return false;
-    }
-
-    private void ExecuteUnitCombat(Unit unit)
-    {
-        if (unit == null || unit.data == null || unit.currentHealth <= 0) return;
-
-        // 1. Find valid target (Enemies for Melee/Ranged, Allies for Support)
-        Unit target = unit.FindTarget(allUnits);
-        if (target == null) return;
-
-        // 2. Measure distance
-        float distance = Vector3.Distance(unit.transform.position, target.transform.position);
-
-        // Turn to smoothly face target
-        Vector3 targetDirection = (target.transform.position - unit.transform.position);
-        targetDirection.y = 0;
-        if (targetDirection != Vector3.zero)
-        {
-            unit.transform.rotation = Quaternion.LookRotation(targetDirection);
-        }
-
-        // 3. Movement or Attack
-        if (distance > unit.data.attackRange)
-        {
-            float step = unit.data.moveSpeed * Time.deltaTime;
-            unit.transform.position = Vector3.MoveTowards(unit.transform.position, target.transform.position, step);
-        }
-        else
-        {
-            // In range: check attack cooldown before executing
-            float nextAvailableTime = attackCooldowns.ContainsKey(unit) ? attackCooldowns[unit] : 0f;
-
-            if (Time.time >= nextAvailableTime)
+            if (!hasPlayer || !hasEnemy)
             {
-                PerformCombatAction(unit, target);
-
-                float attackDelay = unit.data.attackSpeed > 0 ? (1f / unit.data.attackSpeed) : 1f;
-                attackCooldowns[unit] = Time.time + attackDelay;
+                EndCombat();
+                GameManager.Instance?.ReturnToPlanning();
+                yield break;
             }
+
+            foreach (var unit in activeUnits)
+            {
+                if (unit == null || unit.currentHealth <= 0 || unit.isMoving) continue;
+
+                if (!attackCooldowns.ContainsKey(unit))
+                {
+                    attackCooldowns[unit] = 0f;
+                }
+
+                attackCooldowns[unit] -= Time.deltaTime;
+
+                if (attackCooldowns[unit] <= 0f)
+                {
+                    Unit target = unit.FindTarget(activeUnits);
+                    if (target != null)
+                    {
+                        float dist = Vector3.Distance(unit.transform.position, target.transform.position);
+                        float attackRange = unit.data != null ? unit.data.attackRange : 1.5f;
+
+                        if (dist <= attackRange)
+                        {
+                            unit.PlayAttackAnimation(target.transform.position);
+                            PerformCombatAction(unit, target);
+                        }
+                    }
+                }
+            }
+
+            yield return null;
         }
     }
 
@@ -160,71 +127,42 @@ public class CombatManager : MonoBehaviour
         }
         else
         {
-            target.TakeDamage(actionValue);
-            Debug.Log($"[ATTACK] {attackerName} attacked {targetName} for {actionValue} DMG! ({target.currentHealth}/{target.GetEffectiveMaxHealth()})");
+            // Apply Melee flat damage reduction
+            int reduction = SynergyManager.Instance != null ? SynergyManager.Instance.GetMeleeDamageReduction(target) : 0;
+            int finalDamage = Mathf.Max(1, actionValue - reduction);
+
+            target.TakeDamage(finalDamage);
+            Debug.Log($"[ATTACK] {attackerName} attacked {targetName} for {finalDamage} DMG! (Blocked: {reduction})");
 
             if (target.currentHealth <= 0)
             {
                 Debug.Log($"[DEFEATED] {targetName} was eliminated!");
-
                 if (attackCooldowns.ContainsKey(target)) attackCooldowns.Remove(target);
                 gridManager.ClearUnitPosition(target.gridX, target.gridZ);
-
                 target.gameObject.SetActive(false);
             }
         }
+
+        // Apply Ranged Synergy Attack Speed to cooldown
+        float baseCooldown = 1f / Mathf.Max(attacker.data != null ? attacker.data.attackSpeed : 1f, 0.1f);
+        float modifiedCooldown = SynergyManager.Instance != null 
+            ? SynergyManager.Instance.GetRangedAttackInterval(attacker, baseCooldown) 
+            : baseCooldown;
+
+        attackCooldowns[attacker] = modifiedCooldown;
     }
 
-    private IEnumerator EndRoundRoutine(bool playerWon)
+    public List<Unit> GetUnitsByTeam(bool isPlayer)
     {
-        isRoundEnding = true;
-
-        if (playerWon)
+        Unit[] allUnits = UnityEngine.Object.FindObjectsByType<Unit>();
+        List<Unit> list = new List<Unit>();
+        foreach (var u in allUnits)
         {
-            Debug.Log("<color=green>VICTORY!</color> All enemies have been defeated.");
-        }
-        else
-        {
-            Debug.Log("<color=red>DEFEAT!</color> Your army was eliminated.");
-        }
-
-        // Payout gold, streak bonuses, and interest via EconomyManager
-        if (EconomyManager.Instance != null)
-        {
-            EconomyManager.Instance.ProcessRoundEndIncome(playerWon);
-        }
-
-        yield return new WaitForSeconds(1.5f);
-
-        // Include inactive units without passing SortMode
-        Unit[] units = UnityEngine.Object.FindObjectsByType<Unit>(FindObjectsInactive.Include);
-        
-        foreach (var u in units)
-        {
-            if (u.isPlayerTeam)
+            if (u != null && u.gameObject.activeInHierarchy && u.isPlayerTeam == isPlayer && !u.isOnBench)
             {
-                // Defeated player units are re-enabled, healed, and snapped back
-                u.ResetToPlanningPosition(gridManager);
-            }
-            else
-            {
-                // Clean up remaining enemy units
-                Destroy(u.gameObject);
+                list.Add(u);
             }
         }
-
-        // Spawn next wave of enemies
-        if (gridManager != null)
-        {
-            gridManager.SpawnEnemyWave();
-        }
-
-        attackCooldowns.Clear();
-        isRoundEnding = false;
-
-        if (gameManager != null)
-        {
-            gameManager.ReturnToPlanning();
-        }
+        return list;
     }
 }

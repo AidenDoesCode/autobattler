@@ -229,6 +229,7 @@ public class Unit : MonoBehaviour
         {
             healthBar.SetTeam(isPlayerTeam);
             healthBar.UpdateHealth(currentHealth, GetEffectiveMaxHealth());
+            healthBar.UpdateStarLevel(starLevel); // Updates overhead star badge
         }
     }
 

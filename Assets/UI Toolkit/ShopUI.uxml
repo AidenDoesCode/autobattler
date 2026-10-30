@@ -12,29 +12,63 @@
             <ui:Label name="board-cap-label" text="Units: 0 / 1" style="font-size: 18px; -unity-font-style: bold; color: rgb(255, 255, 255);" />
         </ui:VisualElement>
 
+        <!-- COLLAPSIBLE SYNERGY SIDEBAR (Upper-Left Overlay) -->
+        <ui:VisualElement name="synergy-sidebar" style="position: absolute; left: 16px; top: 70px; width: 175px; background-color: rgba(22, 24, 30, 0.92); border-width: 1px; border-color: rgba(255, 255, 255, 0.15); border-radius: 6px; padding: 10px;">
+            <ui:VisualElement style="flex-direction: row; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+                <ui:Label text="SYNERGIES" style="font-size: 13px; -unity-font-style: bold; color: rgb(241, 196, 15);" />
+                <ui:Button name="toggle-synergy-btn" text="▼" style="width: 24px; height: 20px; font-size: 10px; background-color: transparent; color: white; border-width: 0;" />
+            </ui:VisualElement>
+
+            <!-- Collapsible Body -->
+            <ui:VisualElement name="synergy-body" style="flex-direction: column;">
+                
+                <!-- Melee Trait Card -->
+                <ui:VisualElement name="melee-trait-box" style="margin-bottom: 6px; padding: 6px; background-color: rgba(40, 44, 52, 0.6); border-radius: 4px; border-left-width: 3px; border-left-color: rgb(120, 120, 120);">
+                    <ui:VisualElement style="flex-direction: row; justify-content: space-between;">
+                        <ui:Label text="Melee" style="font-size: 12px; -unity-font-style: bold; color: white;" />
+                        <ui:Label name="melee-count-label" text="0 / 2" style="font-size: 12px; color: rgb(180, 180, 180);" />
+                    </ui:VisualElement>
+                    <ui:Label text="2: +200 HP | 4: +450 HP" style="font-size: 9px; color: rgb(160, 160, 160); margin-top: 2px;" />
+                </ui:VisualElement>
+
+                <!-- Ranged Trait Card -->
+                <ui:VisualElement name="ranged-trait-box" style="margin-bottom: 6px; padding: 6px; background-color: rgba(40, 44, 52, 0.6); border-radius: 4px; border-left-width: 3px; border-left-color: rgb(120, 120, 120);">
+                    <ui:VisualElement style="flex-direction: row; justify-content: space-between;">
+                        <ui:Label text="Ranged" style="font-size: 12px; -unity-font-style: bold; color: white;" />
+                        <ui:Label name="ranged-count-label" text="0 / 2" style="font-size: 12px; color: rgb(180, 180, 180);" />
+                    </ui:VisualElement>
+                    <ui:Label text="2: +25% AS | 4: +55% AS" style="font-size: 9px; color: rgb(160, 160, 160); margin-top: 2px;" />
+                </ui:VisualElement>
+
+                <!-- Support Trait Card -->
+                <ui:VisualElement name="support-trait-box" style="padding: 6px; background-color: rgba(40, 44, 52, 0.6); border-radius: 4px; border-left-width: 3px; border-left-color: rgb(120, 120, 120);">
+                    <ui:VisualElement style="flex-direction: row; justify-content: space-between;">
+                        <ui:Label text="Support" style="font-size: 12px; -unity-font-style: bold; color: white;" />
+                        <ui:Label name="support-count-label" text="0 / 2" style="font-size: 12px; color: rgb(180, 180, 180);" />
+                    </ui:VisualElement>
+                    <ui:Label text="2: 4s Area Heal (15% HP)" style="font-size: 9px; color: rgb(160, 160, 160); margin-top: 2px;" />
+                </ui:VisualElement>
+
+            </ui:VisualElement>
+        </ui:VisualElement>
+
         <!-- BOTTOM DOCK: Shop Controls & Offers -->
         <ui:VisualElement name="shop-panel" style="position: relative; background-color: rgba(18, 18, 24, 0.96); border-top-width: 2px; border-top-color: rgba(255, 255, 255, 0.15); padding: 12px 20px; flex-direction: row; align-items: center; justify-content: space-between;">
             
             <!-- LEFT CONTROLS: Level, XP Status, Buy XP, and Reroll -->
             <ui:VisualElement name="shop-controls-left" style="flex-direction: column; justify-content: center; align-items: center; margin-right: 16px; width: 140px;">
-                
-                <!-- Level & XP Counter -->
                 <ui:VisualElement name="xp-info-container" style="flex-direction: row; justify-content: space-between; width: 100%; margin-bottom: 6px;">
                     <ui:Label name="level-label" text="Lvl 1" style="font-size: 14px; -unity-font-style: bold; color: rgb(241, 196, 15);" />
                     <ui:Label name="xp-label" text="0 / 2 XP" style="font-size: 13px; color: rgb(189, 195, 199);" />
                 </ui:VisualElement>
 
-                <!-- Buy XP Button -->
                 <ui:Button name="buy-xp-btn" text="Buy XP (4g)" style="width: 100%; height: 38px; margin-bottom: 8px; background-color: rgb(41, 128, 185); color: rgb(255, 255, 255); -unity-font-style: bold; border-radius: 4px; border-width: 0;" />
-
-                <!-- Reroll Button -->
                 <ui:Button name="reroll-btn" text="Reroll (2g)" style="width: 100%; height: 38px; background-color: rgb(211, 84, 0); color: rgb(255, 255, 255); -unity-font-style: bold; border-radius: 4px; border-width: 0;" />
             </ui:VisualElement>
 
             <!-- CENTER OFFERS: 5 Shop Unit Cards -->
             <ui:VisualElement name="card-container" style="flex-direction: row; flex-grow: 1; justify-content: center;">
                 
-                <!-- Card Slot 0 -->
                 <ui:VisualElement name="card-slot-0" style="width: 130px; height: 110px; margin: 0 6px; padding: 6px; background-color: rgb(32, 35, 42); border-width: 2px; border-color: rgb(70, 80, 95); border-radius: 6px; justify-content: space-between;">
                     <ui:VisualElement style="flex-direction: row; justify-content: space-between;">
                         <ui:Label name="unit-name" text="Unit" style="font-size: 13px; -unity-font-style: bold; color: rgb(255, 255, 255);" />
@@ -44,7 +78,6 @@
                     <ui:Button name="buy-card-btn" text="Buy" style="height: 26px; font-size: 12px; -unity-font-style: bold; background-color: rgb(39, 174, 96); color: white; border-radius: 3px; border-width: 0;" />
                 </ui:VisualElement>
 
-                <!-- Card Slot 1 -->
                 <ui:VisualElement name="card-slot-1" style="width: 130px; height: 110px; margin: 0 6px; padding: 6px; background-color: rgb(32, 35, 42); border-width: 2px; border-color: rgb(70, 80, 95); border-radius: 6px; justify-content: space-between;">
                     <ui:VisualElement style="flex-direction: row; justify-content: space-between;">
                         <ui:Label name="unit-name" text="Unit" style="font-size: 13px; -unity-font-style: bold; color: rgb(255, 255, 255);" />
@@ -54,7 +87,6 @@
                     <ui:Button name="buy-card-btn" text="Buy" style="height: 26px; font-size: 12px; -unity-font-style: bold; background-color: rgb(39, 174, 96); color: white; border-radius: 3px; border-width: 0;" />
                 </ui:VisualElement>
 
-                <!-- Card Slot 2 -->
                 <ui:VisualElement name="card-slot-2" style="width: 130px; height: 110px; margin: 0 6px; padding: 6px; background-color: rgb(32, 35, 42); border-width: 2px; border-color: rgb(70, 80, 95); border-radius: 6px; justify-content: space-between;">
                     <ui:VisualElement style="flex-direction: row; justify-content: space-between;">
                         <ui:Label name="unit-name" text="Unit" style="font-size: 13px; -unity-font-style: bold; color: rgb(255, 255, 255);" />
@@ -64,7 +96,6 @@
                     <ui:Button name="buy-card-btn" text="Buy" style="height: 26px; font-size: 12px; -unity-font-style: bold; background-color: rgb(39, 174, 96); color: white; border-radius: 3px; border-width: 0;" />
                 </ui:VisualElement>
 
-                <!-- Card Slot 3 -->
                 <ui:VisualElement name="card-slot-3" style="width: 130px; height: 110px; margin: 0 6px; padding: 6px; background-color: rgb(32, 35, 42); border-width: 2px; border-color: rgb(70, 80, 95); border-radius: 6px; justify-content: space-between;">
                     <ui:VisualElement style="flex-direction: row; justify-content: space-between;">
                         <ui:Label name="unit-name" text="Unit" style="font-size: 13px; -unity-font-style: bold; color: rgb(255, 255, 255);" />
@@ -74,7 +105,6 @@
                     <ui:Button name="buy-card-btn" text="Buy" style="height: 26px; font-size: 12px; -unity-font-style: bold; background-color: rgb(39, 174, 96); color: white; border-radius: 3px; border-width: 0;" />
                 </ui:VisualElement>
 
-                <!-- Card Slot 4 -->
                 <ui:VisualElement name="card-slot-4" style="width: 130px; height: 110px; margin: 0 6px; padding: 6px; background-color: rgb(32, 35, 42); border-width: 2px; border-color: rgb(70, 80, 95); border-radius: 6px; justify-content: space-between;">
                     <ui:VisualElement style="flex-direction: row; justify-content: space-between;">
                         <ui:Label name="unit-name" text="Unit" style="font-size: 13px; -unity-font-style: bold; color: rgb(255, 255, 255);" />
