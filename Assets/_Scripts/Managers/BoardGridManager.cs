@@ -1,7 +1,6 @@
 using UnityEngine;
 using System.Collections.Generic;
 
-// Defines coordinates for pathfinding on the grid
 public struct GridPoint
 {
     public int x;
@@ -35,7 +34,6 @@ public class BoardGridManager : MonoBehaviour
     public int benchSlotCount = 8;
     public float benchZDistance = 1.4f;
 
-    // Supports both getting and setting from external managers without CS0200 errors
     public int maxBoardUnits
     {
         get => GetMaxBoardUnits();
@@ -61,8 +59,7 @@ public class BoardGridManager : MonoBehaviour
     {
         GenerateGrid();
         GenerateBench();
-
-        SpawnEnemyWave();
+        // Let RoundManager handle the initial SpawnEnemyWave() call!
     }
 
     public int GetMaxBoardUnits()
@@ -227,7 +224,6 @@ public class BoardGridManager : MonoBehaviour
     {
         if (unitGrid == null) unitGrid = new Unit[width, height];
 
-        // Clean out any stale references of this same unit elsewhere on the grid
         for (int ix = 0; ix < width; ix++)
         {
             for (int iz = 0; iz < height; iz++)
@@ -460,9 +456,10 @@ public class BoardGridManager : MonoBehaviour
             {
                 for (int z = 0; z < height; z++)
                 {
-                    if (gridTiles[x, z] != null)
+                    GameObject tile = gridTiles[x, z];
+                    if (tile != null)
                     {
-                        Renderer rend = gridTiles[x, z].GetComponent<Renderer>();
+                        Renderer rend = tile.GetComponent<Renderer>();
                         if (rend != null) rend.material.color = defaultBoardColor;
                     }
                 }
@@ -474,9 +471,10 @@ public class BoardGridManager : MonoBehaviour
             Color benchColor = new Color(0.85f, 0.85f, 0.90f);
             for (int i = 0; i < benchSlotCount; i++)
             {
-                if (benchTiles[i] != null)
+                GameObject tile = benchTiles[i];
+                if (tile != null)
                 {
-                    Renderer rend = benchTiles[i].GetComponent<Renderer>();
+                    Renderer rend = tile.GetComponent<Renderer>();
                     if (rend != null) rend.material.color = benchColor;
                 }
             }

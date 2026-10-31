@@ -42,7 +42,6 @@ public class CombatManager : MonoBehaviour
         gridManager = Object.FindAnyObjectByType<BoardGridManager>();
         battleUI = Object.FindAnyObjectByType<BattleUIController>();
 
-        // Auto-populate drop item pool from database if not set
         if ((dropItemPool == null || dropItemPool.Count == 0) && ItemInventoryManager.Instance != null && ItemInventoryManager.Instance.itemDatabase != null)
         {
             foreach (var it in ItemInventoryManager.Instance.itemDatabase.allItems)
@@ -65,19 +64,26 @@ public class CombatManager : MonoBehaviour
 
         if (isRoundEnding) return;
 
-        allUnits = new List<Unit>(Object.FindObjectsByType<Unit>(FindObjectsInactive.Exclude));
-
+        // 1. Get ALL units in the scene
+        Unit[] rawUnits = Object.FindObjectsByType<Unit>(FindObjectsInactive.Exclude);
+        
+        // 2. Clear and rebuild the combat list ONLY with active board units
+        allUnits.Clear();
         int activePlayerUnits = 0;
         int activeEnemyUnits = 0;
 
-        foreach (var u in allUnits)
+        foreach (var u in rawUnits)
         {
+            // CRITICAL FIX: Skip dead units and BENCH units completely
             if (u == null || u.isOnBench || u.currentHealth <= 0) continue;
+
+            allUnits.Add(u);
 
             if (u.isPlayerTeam) activePlayerUnits++;
             else activeEnemyUnits++;
         }
 
+        // 3. Check win/loss conditions
         if (activePlayerUnits == 0 && activeEnemyUnits == 0)
         {
             return;
@@ -94,7 +100,7 @@ public class CombatManager : MonoBehaviour
             return;
         }
 
-        // Execute combat turns
+        // 4. Execute combat turns using ONLY the filtered board units
         for (int i = 0; i < allUnits.Count; i++)
         {
             Unit currentUnit = allUnits[i];
@@ -125,8 +131,7 @@ public class CombatManager : MonoBehaviour
 
         yield return new WaitForSeconds(1.5f);
 
-        // Revive living and dead player units
-        Unit[] units = Object.FindObjectsByType<Unit>(FindObjectsInactive.Include);
+        Unit[] units = UnityEngine.Object.FindObjectsByType<Unit>(FindObjectsInactive.Include);
 
         foreach (var u in units)
         {
@@ -142,9 +147,14 @@ public class CombatManager : MonoBehaviour
             }
         }
 
-        if (gridManager != null)
+        // Delegate next wave generation to the RoundManager
+        if (RoundManager.Instance != null)
         {
-            gridManager.SpawnEnemyWave();
+            RoundManager.Instance.AdvanceRound();
+        }
+        else if (gridManager != null)
+        {
+            gridManager.SpawnEnemyWave(); // Fallback if RoundManager is missing
         }
 
         attackCooldowns.Clear();
@@ -165,6 +175,7 @@ public class CombatManager : MonoBehaviour
     {
         if (unit == null || unit.data == null || unit.currentHealth <= 0 || unit.isMoving) return;
 
+        // FindTarget will now strictly only see other deployed board units
         Unit target = unit.FindTarget(allUnits);
         if (target == null) return;
 
@@ -228,7 +239,6 @@ public class CombatManager : MonoBehaviour
                 if (attackCooldowns.ContainsKey(target)) attackCooldowns.Remove(target);
                 if (gridManager != null) gridManager.ClearUnitPosition(target.gridX, target.gridZ);
 
-                // If defeated unit was an enemy, roll for loot orb drop!
                 if (!target.isPlayerTeam)
                 {
                     RollEnemyLootDrop(target.transform.position);
@@ -245,7 +255,6 @@ public class CombatManager : MonoBehaviour
 
         float roll = Random.value;
 
-        // 1. Roll Item Component Drop
         if (roll <= itemDropChance && dropItemPool != null && dropItemPool.Count > 0)
         {
             ItemData droppedItem = dropItemPool[Random.Range(0, dropItemPool.Count)];
@@ -253,10 +262,9 @@ public class CombatManager : MonoBehaviour
             return;
         }
 
-        // 2. Roll Gold Drop
         if (roll <= (itemDropChance + goldDropChance))
         {
-            int goldAmount = Random.Range(1, 4); // 1g to 3g
+            int goldAmount = Random.Range(1, 4);
             SpawnLootOrb(deathWorldPos, LootType.Gold, null, goldAmount);
         }
     }
