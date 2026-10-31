@@ -9,6 +9,7 @@ public class UnitHealthBarUI : MonoBehaviour
     private PanelRenderer panelRenderer;
     private VisualElement root;
     private VisualElement barFill;
+    private VisualElement manaFill;
     private VisualElement popupContainer;
     private Label starBadgeLabel;
     
@@ -20,6 +21,7 @@ public class UnitHealthBarUI : MonoBehaviour
     private bool uiReady = false;
 
     private float cachedPercentage = 100f;
+    private float cachedManaPercentage = 0f;
     private bool cachedIsPlayerTeam = true;
     private int cachedStarLevel = 1;
     private List<ItemData> cachedItems = new List<ItemData>();
@@ -27,6 +29,7 @@ public class UnitHealthBarUI : MonoBehaviour
     [Header("Colors")]
     [SerializeField] private Color allyColor = new Color(0.2f, 0.8f, 0.2f);
     [SerializeField] private Color enemyColor = new Color(0.9f, 0.2f, 0.2f);
+    [SerializeField] private Color manaColor = new Color(0.15f, 0.6f, 1f);
 
     [Header("Star Display Settings")]
     [Tooltip("If false, 1-star units hide their star badge to avoid clutter.")]
@@ -63,6 +66,7 @@ public class UnitHealthBarUI : MonoBehaviour
 
         root = rootElement;
         barFill = rootElement.Q<VisualElement>("bar-fill");
+        manaFill = rootElement.Q<VisualElement>("mana-fill");
         popupContainer = rootElement.Q<VisualElement>("popup-container");
         starBadgeLabel = rootElement.Q<Label>("star-badge-label");
         itemsContainer = rootElement.Q<VisualElement>("items-container");
@@ -76,7 +80,7 @@ public class UnitHealthBarUI : MonoBehaviour
         if (barFill != null)
         {
             uiReady = true;
-            ApplyBar();
+            ApplyBars();
             ApplyStarBadge();
             ApplyItems();
         }
@@ -93,13 +97,19 @@ public class UnitHealthBarUI : MonoBehaviour
     public void SetTeam(bool isPlayerTeam)
     {
         cachedIsPlayerTeam = isPlayerTeam;
-        if (uiReady) ApplyBar();
+        if (uiReady) ApplyBars();
     }
 
     public void UpdateHealth(int currentHealth, int maxHealth)
     {
         cachedPercentage = maxHealth > 0 ? Mathf.Clamp01((float)currentHealth / maxHealth) * 100f : 0f;
-        if (uiReady) ApplyBar();
+        if (uiReady) ApplyBars();
+    }
+
+    public void UpdateMana(int currentMana, int maxMana)
+    {
+        cachedManaPercentage = maxMana > 0 ? Mathf.Clamp01((float)currentMana / maxMana) * 100f : 0f;
+        if (uiReady) ApplyBars();
     }
 
     public void UpdateStarLevel(int starLevel)
@@ -119,11 +129,19 @@ public class UnitHealthBarUI : MonoBehaviour
         if (uiReady) ApplyItems();
     }
 
-    private void ApplyBar()
+    private void ApplyBars()
     {
-        if (barFill == null) return;
-        barFill.style.backgroundColor = cachedIsPlayerTeam ? allyColor : enemyColor;
-        barFill.style.width = Length.Percent(cachedPercentage);
+        if (barFill != null)
+        {
+            barFill.style.backgroundColor = cachedIsPlayerTeam ? allyColor : enemyColor;
+            barFill.style.width = Length.Percent(cachedPercentage);
+        }
+
+        if (manaFill != null)
+        {
+            manaFill.style.backgroundColor = manaColor;
+            manaFill.style.width = Length.Percent(cachedManaPercentage);
+        }
     }
 
     private void ApplyStarBadge()
@@ -224,7 +242,7 @@ public class UnitHealthBarUI : MonoBehaviour
         }
     }
 
-    public void ShowCombatPopup(int amount, bool isHeal)
+    public void ShowCombatPopup(int amount, bool isHeal, string customText = null, Color? customColor = null)
     {
         if (popupContainer == null && root != null)
         {
@@ -233,17 +251,27 @@ public class UnitHealthBarUI : MonoBehaviour
 
         if (popupContainer == null) return;
 
-        Label label = new Label(isHeal ? $"+{amount}" : amount.ToString());
+        string displayStr = customText ?? (isHeal ? $"+{amount}" : amount.ToString());
+        Label label = new Label(displayStr);
         label.style.position = Position.Absolute;
         label.style.unityFontStyleAndWeight = FontStyle.Bold;
-        label.style.fontSize = 20;
-        label.style.color = isHeal ? new Color(0.2f, 0.9f, 0.3f, 1f) : new Color(1f, 0.25f, 0.25f, 1f);
-        label.style.width = 60;
+        label.style.fontSize = customText != null ? 15 : 20;
+
+        if (customColor.HasValue)
+        {
+            label.style.color = customColor.Value;
+        }
+        else
+        {
+            label.style.color = isHeal ? new Color(0.2f, 0.9f, 0.3f, 1f) : new Color(1f, 0.25f, 0.25f, 1f);
+        }
+
+        label.style.width = 120;
         label.style.height = 30;
         label.style.unityTextAlign = TextAnchor.MiddleCenter;
 
         float randomX = Random.Range(-15f, 15f);
-        label.style.left = (120f - 60f) * 0.5f + randomX;
+        label.style.left = randomX;
         label.style.bottom = 0f;
 
         popupContainer.Add(label);
@@ -260,10 +288,10 @@ public class UnitHealthBarUI : MonoBehaviour
 
     private IEnumerator AnimatePopupRoutine(Label label)
     {
-        float duration = 0.8f;
+        float duration = 0.85f;
         float elapsed = 0f;
         float startBottom = 0f;
-        float endBottom = 40f;
+        float endBottom = 45f;
 
         while (elapsed < duration)
         {

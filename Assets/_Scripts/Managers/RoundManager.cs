@@ -68,4 +68,9 @@ public class RoundManager : MonoBehaviour
         // Rounds 1, 2, 3 and every 5th boss round (10, 15, 20) are PvE drops
         return round <= 3 || round % 5 == 0;
     }
+
+    public string GetRoundDescription(int round)
+    {
+        return IsPvERound(round) ? "PvE creep wave" : "PvP opponent";
+    }
 }

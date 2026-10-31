@@ -105,13 +105,18 @@ public class ShopManager : MonoBehaviour
         OnShopGenerated?.Invoke(currentShopUnits);
     }
 
+    public float[] GetTierRollOdds()
+    {
+        return EconomyManager.Instance != null
+            ? EconomyManager.Instance.GetTierOdds()
+            : new float[] { 0.6f, 0.3f, 0.1f };
+    }
+
     private UnitData GetRandomUnitByOdds()
     {
         if (unitPool == null || unitPool.Count == 0) return null;
 
-        float[] odds = EconomyManager.Instance != null 
-            ? EconomyManager.Instance.GetTierOdds() 
-            : new float[] { 0.6f, 0.3f, 0.1f };
+        float[] odds = GetTierRollOdds();
 
         float roll = UnityEngine.Random.value;
         int targetCost = 1;

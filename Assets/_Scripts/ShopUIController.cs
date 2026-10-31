@@ -2,6 +2,7 @@ using UnityEngine;
 using UnityEngine.UIElements;
 using UnityEngine.InputSystem;
 using System.Collections.Generic;
+using System.Collections;
 
 [RequireComponent(typeof(PanelRenderer))]
 public class ShopUIController : MonoBehaviour
@@ -15,6 +16,11 @@ public class ShopUIController : MonoBehaviour
     private Label xpLabel;
     private Label levelLabel;
     private Label boardCapLabel;
+    private Label shopOddsTitle;
+    private VisualElement shopOddsLabels;
+    private VisualElement shopOddsBar;
+    private Label currentRoundLabel;
+    private Label nextRoundLabel;
     private Button rerollButton;
     private Button buyXpButton;
     private Button lockShopButton;
@@ -29,11 +35,15 @@ public class ShopUIController : MonoBehaviour
     private VisualElement supportBox;
     private Label supportCountLabel;
     private bool isSynergyCollapsed = false;
+    private UnitArchetype? inspectedSynergy;
 
     // Item Tray UI Elements
     private VisualElement[] itemSlotElements;
     private VisualElement dragGhost;
     private Label ghostLabel;
+    private Label overflowLabel;
+    private VisualElement sellBanner;
+    private VisualElement shopPanel;
 
     // Inspection Card Elements
     private VisualElement inspectionModal;
@@ -139,6 +149,8 @@ public class ShopUIController : MonoBehaviour
 
         if (ItemInventoryManager.Instance != null)
         {
+            ItemInventoryManager.Instance.OnItemRecovered -= AnimateRecoveredItem;
+            ItemInventoryManager.Instance.OnItemRecovered += AnimateRecoveredItem;
             ItemInventoryManager.Instance.OnInventoryChanged -= UpdateItemTrayUI;
             ItemInventoryManager.Instance.OnInventoryChanged += UpdateItemTrayUI;
         }
@@ -166,12 +178,15 @@ public class ShopUIController : MonoBehaviour
 
         if (ItemInventoryManager.Instance != null)
         {
+            ItemInventoryManager.Instance.OnItemRecovered -= AnimateRecoveredItem;
             ItemInventoryManager.Instance.OnInventoryChanged -= UpdateItemTrayUI;
         }
     }
 
     void Update()
     {
+        UpdateRoundUI();
+
         if (gridManager != null && boardCapLabel != null)
         {
             int current = gridManager.GetCurrentBoardUnitCount();
@@ -192,7 +207,7 @@ public class ShopUIController : MonoBehaviour
         }
 
         // Right-click empty backdrop closes inspection modal
-        if (Mouse.current != null && Mouse.current.rightButton.wasPressedThisFrame && !ItemInventoryManager.Instance.IsDraggingItem)
+        if (Mouse.current != null && Mouse.current.rightButton.wasPressedThisFrame && (ItemInventoryManager.Instance == null || !ItemInventoryManager.Instance.IsDraggingItem))
         {
             if (inspectionModal != null && inspectionModal.style.display == DisplayStyle.Flex)
             {
@@ -200,7 +215,11 @@ public class ShopUIController : MonoBehaviour
                 Vector2 screenCoords = new Vector2(mouseScreenPos.x, Screen.height - mouseScreenPos.y);
                 Vector2 panelPos = RuntimePanelUtils.ScreenToPanel(root.panel, screenCoords);
 
-                if (!inspectionModal.worldBound.Contains(panelPos))
+                if (!inspectionModal.worldBound.Contains(panelPos) &&
+                    !(meleeBox != null && meleeBox.worldBound.Contains(panelPos)) &&
+                    !(rangedBox != null && rangedBox.worldBound.Contains(panelPos)) &&
+                    !(supportBox != null && supportBox.worldBound.Contains(panelPos)) &&
+                    (cardSlots == null || !System.Array.Exists(cardSlots, card => card != null && card.worldBound.Contains(panelPos))))
                 {
                     CloseInspection();
                 }
@@ -211,12 +230,20 @@ public class ShopUIController : MonoBehaviour
     private void OnUIReload(PanelRenderer renderer, VisualElement rootElement, int version)
     {
         if (rootElement == null) return;
+        HudHoverHighlight.Install(rootElement);
         root = rootElement;
 
         goldLabel = root.Q<Label>("gold-label");
         xpLabel = root.Q<Label>("xp-label");
         levelLabel = root.Q<Label>("level-label");
         boardCapLabel = root.Q<Label>("board-cap-label");
+        shopOddsTitle = root.Q<Label>("shop-odds-title");
+        shopOddsLabels = root.Q<VisualElement>("shop-odds-labels");
+        shopOddsBar = root.Q<VisualElement>("shop-odds-bar");
+        UpdateShopOddsUI();
+        currentRoundLabel = root.Q<Label>("current-round-label");
+        nextRoundLabel = root.Q<Label>("next-round-label");
+        UpdateRoundUI();
 
         rerollButton = root.Q<Button>("reroll-btn");
         buyXpButton = root.Q<Button>("buy-xp-btn");
@@ -225,6 +252,9 @@ public class ShopUIController : MonoBehaviour
         // Drag Ghost Visual
         dragGhost = root.Q<VisualElement>("dragged-item-ghost");
         ghostLabel = root.Q<Label>("ghost-label");
+        overflowLabel = root.Q<Label>("item-overflow-label");
+        sellBanner = root.Q<VisualElement>("sell-banner");
+        shopPanel = root.Q<VisualElement>("shop-panel");
 
         // Inspection Modal Query
         inspectionModal = root.Q<VisualElement>("inspection-modal");
@@ -254,6 +284,9 @@ public class ShopUIController : MonoBehaviour
         rangedCountLabel = root.Q<Label>("ranged-count-label");
         supportBox = root.Q<VisualElement>("support-trait-box");
         supportCountLabel = root.Q<Label>("support-count-label");
+        BindSynergyInspection(meleeBox, UnitArchetype.Melee);
+        BindSynergyInspection(rangedBox, UnitArchetype.Ranged);
+        BindSynergyInspection(supportBox, UnitArchetype.Support);
 
         if (toggleSynergyBtn != null)
         {
@@ -416,10 +449,42 @@ public class ShopUIController : MonoBehaviour
         UpdateItemTrayUI();
     }
 
+    private void UpdateRoundUI()
+    {
+        if (currentRoundLabel == null || nextRoundLabel == null) return;
+
+        RoundManager rounds = RoundManager.Instance;
+        GameManager game = GameManager.Instance;
+        if (rounds == null)
+        {
+            currentRoundLabel.text = "Round —";
+            nextRoundLabel.text = "Waiting for round schedule";
+            return;
+        }
+
+        int round = rounds.currentRound;
+        string phase = game != null ? game.currentState.ToString() : "Planning";
+        currentRoundLabel.text = $"Round {round} • {phase} • {rounds.GetRoundDescription(round)}";
+
+        // The next wave is already spawned before an inter-round auction opens.
+        if (game != null && game.currentState == GameManager.GameState.Auction)
+        {
+            currentRoundLabel.text = $"Auction • Before round {round}";
+            nextRoundLabel.text = $"Up next: Round {round} • {rounds.GetRoundDescription(round)}";
+            return;
+        }
+
+        bool auctionNext = game != null && game.auctionInterval > 0 &&
+            (game.currentRound + 1) % game.auctionInterval == 0;
+        string nextWave = $"Round {round + 1} • {rounds.GetRoundDescription(round + 1)}";
+        nextRoundLabel.text = auctionNext ? $"Next: Auction → {nextWave}" : $"Next: {nextWave}";
+    }
+
     // --- INSPECTION CARD LOGIC ---
 
     public void InspectUnit(Unit unit)
     {
+        inspectedSynergy = null;
         if (inspectionModal == null || unit == null || unit.data == null) return;
 
         SetBorderColor(inspectionModal, new Color(0.95f, 0.77f, 0.06f));
@@ -437,7 +502,7 @@ public class ShopUIController : MonoBehaviour
         int flatDR = unit.GetItemFlatDamageReduction();
         inspectStatExtra.text = $"Bonus AS: +{bonusAS:F0}%   |   DR: -{flatDR}";
 
-        inspectDescLabel.style.display = DisplayStyle.None;
+        ShowUnitUltimate(unit.data, unit.GetEffectiveAttackDamage(), $"Mana: {unit.currentMana} / {unit.maxMana}");
 
         inspectItemsBox.style.display = DisplayStyle.Flex;
         inspectItemsHeader.text = $"EQUIPPED ITEMS ({unit.equippedItems.Count}/{Unit.MaxItems})";
@@ -502,6 +567,7 @@ public class ShopUIController : MonoBehaviour
 
     public void InspectUnitData(UnitData data, ItemData attachedItem = null)
     {
+        inspectedSynergy = null;
         if (inspectionModal == null || data == null) return;
 
         SetBorderColor(inspectionModal, new Color(0.95f, 0.77f, 0.06f));
@@ -513,7 +579,7 @@ public class ShopUIController : MonoBehaviour
         inspectStatAd.text = $"Base Attack: {data.attackDamage}";
         inspectStatExtra.text = $"Range: {data.attackRange:F1}   |   Speed: {data.moveSpeed:F1}";
 
-        inspectDescLabel.style.display = DisplayStyle.None;
+        ShowUnitUltimate(data, data.attackDamage, "Casts automatically at full mana");
 
         inspectItemsBox.style.display = DisplayStyle.Flex;
         inspectItemsList.Clear();
@@ -571,8 +637,20 @@ public class ShopUIController : MonoBehaviour
         inspectionModal.style.display = DisplayStyle.Flex;
     }
 
+    private void ShowUnitUltimate(UnitData data, int attack, string manaText)
+    {
+        // Item inspection may have hidden stat rows on the shared card.
+        inspectStatHp.style.display = DisplayStyle.Flex;
+        inspectStatAd.style.display = DisplayStyle.Flex;
+        inspectStatExtra.style.display = DisplayStyle.Flex;
+        inspectDescLabel.text = $"ULTIMATE: {data.UltimateName}\n{manaText}\n{data.GetUltimateDescription(attack)}";
+        inspectDescLabel.style.whiteSpace = WhiteSpace.Normal;
+        inspectDescLabel.style.display = DisplayStyle.Flex;
+    }
+
     public void InspectItem(ItemData item)
     {
+        inspectedSynergy = null;
         if (inspectionModal == null || item == null) return;
 
         Color itemBorderColor = item.isCompletedItem ? new Color(1f, 0.84f, 0f) : new Color(0.3f, 0.6f, 0.9f);
@@ -614,6 +692,7 @@ public class ShopUIController : MonoBehaviour
 
     public void CloseInspection()
     {
+        inspectedSynergy = null;
         if (inspectionModal != null)
         {
             inspectionModal.style.display = DisplayStyle.None;
@@ -666,6 +745,70 @@ public class ShopUIController : MonoBehaviour
         int supportTier = SynergyManager.Instance.supportTier;
         if (supportCountLabel != null) supportCountLabel.text = $"{support} / 2";
         SetTraitVisual(supportBox, supportTier);
+        if (inspectedSynergy.HasValue && inspectionModal != null && inspectionModal.style.display == DisplayStyle.Flex)
+            InspectSynergy(inspectedSynergy.Value);
+    }
+
+    private void BindSynergyInspection(VisualElement box, UnitArchetype archetype)
+    {
+        if (box == null) return;
+        box.tooltip = "Click or right-click to inspect synergy";
+        box.focusable = true;
+        box.RegisterCallback<PointerDownEvent>(evt =>
+        {
+            if (evt.button != 0 && evt.button != 1) return;
+            InspectSynergy(archetype);
+            evt.StopPropagation();
+        });
+        box.RegisterCallback<KeyDownEvent>(evt =>
+        {
+            if (evt.keyCode != KeyCode.Return && evt.keyCode != KeyCode.Space) return;
+            InspectSynergy(archetype);
+            evt.StopPropagation();
+        });
+    }
+
+    private void InspectSynergy(UnitArchetype archetype)
+    {
+        if (inspectionModal == null) return;
+        SynergyManager synergies = SynergyManager.Instance;
+        int count = synergies == null ? 0 : archetype == UnitArchetype.Melee ? synergies.meleeCount :
+            archetype == UnitArchetype.Ranged ? synergies.rangedCount : synergies.supportCount;
+        int tier = synergies == null ? 0 : archetype == UnitArchetype.Melee ? synergies.meleeTier :
+            archetype == UnitArchetype.Ranged ? synergies.rangedTier : synergies.supportTier;
+        inspectedSynergy = archetype;
+        SetBorderColor(inspectionModal, new Color(0.95f, 0.77f, 0.06f));
+        inspectTitle.text = $"{archetype} Synergy";
+        inspectSubtitle.text = $"{count} unique units on board • {(tier > 0 ? "Active" : "Inactive")}";
+        inspectSubtitle.style.color = tier > 0 ? new Color(0.3f, 0.85f, 0.5f) : new Color(0.85f, 0.9f, 0.95f);
+        inspectStatHp.style.display = DisplayStyle.None;
+        inspectStatAd.style.display = DisplayStyle.None;
+        inspectStatExtra.style.display = DisplayStyle.None;
+        inspectItemsBox.style.display = DisplayStyle.None;
+        string description;
+        switch (archetype)
+        {
+            case UnitArchetype.Melee:
+                description = $"2 units: +200 maximum health to allied Melee units. {(tier == 1 ? "[ACTIVE]" : "")}\n" +
+                    $"4 units: +450 maximum health instead. {(tier == 2 ? "[ACTIVE]" : "")}";
+                break;
+            case UnitArchetype.Ranged:
+                description = $"2 units: +25% attack speed to allied Ranged units. {(tier == 1 ? "[ACTIVE]" : "")}\n" +
+                    $"4 units: +55% attack speed instead. {(tier == 2 ? "[ACTIVE]" : "")}";
+                break;
+            default:
+                description = $"2 units: Every 4 seconds, each allied Support unit heals living allies within 1.6 world units for 15% of their maximum health. {(tier > 0 ? "[ACTIVE]" : "")}";
+                break;
+        }
+        int nextThreshold = count < 2 ? 2 : 4;
+        string progress = tier >= 2 || (archetype == UnitArchetype.Support && tier >= 1)
+            ? "Highest tier reached."
+            : $"Add {nextThreshold - count} more unique {archetype} unit(s) to reach the next tier.";
+        inspectDescLabel.text = description + "\n\n" + progress +
+            "\n\nOnly distinct unit names on your board count. Duplicate copies and bench units do not increase the synergy count. Bonuses apply during combat.";
+        inspectDescLabel.style.whiteSpace = WhiteSpace.Normal;
+        inspectDescLabel.style.display = DisplayStyle.Flex;
+        inspectionModal.style.display = DisplayStyle.Flex;
     }
 
     private void SetTraitVisual(VisualElement box, int tier)
@@ -689,9 +832,71 @@ public class ShopUIController : MonoBehaviour
         }
     }
 
+    public void ShowSellArea(bool show)
+    {
+        if (sellBanner != null) sellBanner.style.display = show ? DisplayStyle.Flex : DisplayStyle.None;
+    }
+
+    public bool IsOverSellArea(Vector2 screenPosition)
+    {
+        if (shopPanel == null || root == null || root.panel == null) return false;
+        Vector2 point = RuntimePanelUtils.ScreenToPanel(root.panel, new Vector2(screenPosition.x, Screen.height - screenPosition.y));
+        return shopPanel.worldBound.Contains(point);
+    }
+
+    private void AnimateRecoveredItem(ItemData item, Vector3 worldPosition, int slotIndex)
+    {
+        if (root == null || root.panel == null || Camera.main == null) return;
+        VisualElement destination = slotIndex >= 0 && itemSlotElements != null && slotIndex < itemSlotElements.Length
+            ? itemSlotElements[slotIndex] : root.Q<VisualElement>("item-tray-bar");
+        if (destination == null) return;
+        Vector3 screen = Camera.main.WorldToScreenPoint(worldPosition);
+        Vector2 start = root.WorldToLocal(RuntimePanelUtils.ScreenToPanel(root.panel, new Vector2(screen.x, Screen.height - screen.y)));
+        StartCoroutine(FlyRecoveredItem(item, start, destination));
+    }
+
+    private IEnumerator FlyRecoveredItem(ItemData item, Vector2 start, VisualElement destination)
+    {
+        VisualElement animationRoot = root;
+        Label icon = new Label(string.IsNullOrEmpty(item.itemCode) ? item.itemName : item.itemCode);
+        icon.pickingMode = PickingMode.Ignore;
+        icon.style.position = Position.Absolute;
+        icon.style.width = 42;
+        icon.style.height = 36;
+        icon.style.fontSize = 12;
+        icon.style.unityFontStyleAndWeight = FontStyle.Bold;
+        icon.style.unityTextAlign = TextAnchor.MiddleCenter;
+        icon.style.backgroundColor = new Color(0.08f, 0.12f, 0.2f, 0.98f);
+        icon.style.color = item.isCompletedItem ? new Color(1f, 0.84f, 0f) : Color.white;
+        icon.style.borderTopWidth = icon.style.borderBottomWidth = 2;
+        icon.style.borderLeftWidth = icon.style.borderRightWidth = 2;
+        SetBorderColor(icon, item.isCompletedItem ? new Color(1f, 0.84f, 0f) : new Color(0.3f, 0.8f, 1f));
+        SetBorderRadius(icon, 5);
+        animationRoot.Add(icon);
+        float elapsed = 0f;
+        while (elapsed < 0.65f && animationRoot.panel != null && destination.panel != null)
+        {
+            float t = Mathf.Clamp01(elapsed / 0.65f);
+            Vector2 end = animationRoot.WorldToLocal(destination.worldBound.center);
+            Vector2 position = Vector2.Lerp(start, end, t * t) + Vector2.up * (-Mathf.Sin(t * Mathf.PI) * 65f);
+            icon.style.left = position.x - 21;
+            icon.style.top = position.y - 18;
+            icon.BringToFront();
+            elapsed += Time.unscaledDeltaTime;
+            yield return null;
+        }
+        icon.RemoveFromHierarchy();
+    }
+
     private void UpdateItemTrayUI()
     {
         if (ItemInventoryManager.Instance == null || itemSlotElements == null) return;
+        if (overflowLabel != null)
+        {
+            int waiting = ItemInventoryManager.Instance.OverflowCount;
+            overflowLabel.text = $"+{waiting} waiting";
+            overflowLabel.style.display = waiting > 0 ? DisplayStyle.Flex : DisplayStyle.None;
+        }
 
         for (int i = 0; i < itemSlotElements.Length; i++)
         {
@@ -701,6 +906,7 @@ public class ShopUIController : MonoBehaviour
             slot.Clear();
             slot.style.opacity = 1f;
             ItemData it = ItemInventoryManager.Instance.inventorySlots[i];
+            slot.EnableInClassList("hud-hover", it != null);
 
             if (it != null)
             {
@@ -784,6 +990,8 @@ public class ShopUIController : MonoBehaviour
 
     private void UpdateXPUI(int currentXP, int maxXP, int level)
     {
+        UpdateShopOddsUI();
+
         if (xpLabel != null)
         {
             xpLabel.text = (EconomyManager.Instance != null && level >= EconomyManager.Instance.maxLevel)
@@ -811,8 +1019,49 @@ public class ShopUIController : MonoBehaviour
         }
     }
 
+    private void UpdateShopOddsUI()
+    {
+        if (shopOddsTitle == null || shopOddsLabels == null || shopOddsBar == null) return;
+
+        EconomyManager economy = EconomyManager.Instance;
+        ShopManager shop = ShopManager.Instance;
+        float[] odds = shop != null ? shop.GetTierRollOdds() : economy != null ? economy.GetTierOdds() : null;
+        shopOddsTitle.text = economy != null ? $"LEVEL {economy.currentLevel} • TIER ROLL ODDS" : "TIER ROLL ODDS";
+        shopOddsLabels.Clear();
+        shopOddsBar.Clear();
+        if (odds == null)
+        {
+            shopOddsLabels.Add(new Label("Waiting for shop"));
+            return;
+        }
+
+        Color[] colors = { new Color(0.75f, 0.80f, 0.87f), new Color(0.3f, 0.85f, 0.5f), new Color(0.35f, 0.65f, 1f) };
+        for (int i = 0; i < odds.Length; i++)
+        {
+            Color color = colors[i % colors.Length];
+            Label label = new Label($"Tier {i + 1} ({i + 1}g): {odds[i] * 100f:0.#}%");
+            label.pickingMode = PickingMode.Ignore;
+            label.style.color = color;
+            label.style.opacity = odds[i] > 0f ? 1f : 0.45f;
+            label.style.fontSize = 13;
+            label.style.unityFontStyleAndWeight = FontStyle.Bold;
+            label.style.marginLeft = 10;
+            label.style.marginRight = 10;
+            shopOddsLabels.Add(label);
+
+            VisualElement segment = new VisualElement();
+            segment.pickingMode = PickingMode.Ignore;
+            segment.style.width = Length.Percent(odds[i] * 100f);
+            segment.style.height = Length.Percent(100f);
+            segment.style.flexShrink = 0;
+            segment.style.backgroundColor = color;
+            shopOddsBar.Add(segment);
+        }
+    }
+
     private void PopulateShopCards(UnitData[] cards)
     {
+        UpdateShopOddsUI();
         if (cards == null || cardSlots == null) return;
 
         for (int i = 0; i < cardSlots.Length; i++)

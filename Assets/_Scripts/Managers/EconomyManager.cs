@@ -82,6 +82,22 @@ public class EconomyManager : MonoBehaviour
         Debug.Log($"<color=yellow>[Economy]</color> Sold {data.unitName} for {refund}g. Current Gold: {currentGold}g");
     }
 
+    public bool TrySellUnit(Unit unit)
+    {
+        if (unit == null || unit.data == null || !unit.isPlayerTeam || !unit.gameObject.activeInHierarchy) return false;
+        if (GameManager.Instance == null || GameManager.Instance.currentState != GameManager.GameState.Planning) return false;
+        if (unit.equippedItems.Count > 0 && ItemInventoryManager.Instance == null) return false;
+
+        if (ItemInventoryManager.Instance != null) ItemInventoryManager.Instance.RecoverUnitItems(unit);
+        BoardGridManager grid = UnityEngine.Object.FindAnyObjectByType<BoardGridManager>();
+        if (grid != null) grid.UnregisterUnit(unit);
+        unit.gameObject.SetActive(false);
+        SellUnit(unit.data);
+        Destroy(unit.gameObject);
+        if (SynergyManager.Instance != null) SynergyManager.Instance.RecalculateSynergies();
+        return true;
+    }
+
     // --- XP & Leveling Logic ---
 
     public bool BuyXP()

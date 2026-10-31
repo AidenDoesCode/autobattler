@@ -218,6 +218,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::UnitHealthBarUI
   allyColor: {r: 0.2, g: 0.8, b: 0.2, a: 1}
   enemyColor: {r: 0.9, g: 0.2, b: 0.2, a: 1}
+  manaColor: {r: 0.15, g: 0.6, b: 1, a: 1}
   showOneStarBadge: 0
 --- !u!1 &4364211808588923933
 GameObject:
@@ -350,13 +351,18 @@ MonoBehaviour:
   data: {fileID: 11400000, guid: 9819d95b25be78649a87bbcf9267ab3b, type: 2}
   gridX: 0
   gridZ: 0
-  isOnBench: 0
-  benchSlotIndex: -1
   isPlayerTeam: 1
   starLevel: 1
-  scaledMaxHealth: 0
-  scaledAttackDamage: 0
+  currentMana: 0
+  maxMana: 100
+  manaGainOnAttack: 20
+  manaGainOnDamaged: 10
+  isStunned: 0
   equippedItems: []
+  bonusSynergyHealth: 0
+  bonusSynergyDamage: 0
+  isOnBench: 0
+  benchSlotIndex: -1
   healthBar: {fileID: 0}
   currentHealth: 0
   lastValidX: 0

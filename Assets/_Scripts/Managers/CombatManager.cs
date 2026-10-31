@@ -64,17 +64,14 @@ public class CombatManager : MonoBehaviour
 
         if (isRoundEnding) return;
 
-        // 1. Get ALL units in the scene
         Unit[] rawUnits = Object.FindObjectsByType<Unit>(FindObjectsInactive.Exclude);
         
-        // 2. Clear and rebuild the combat list ONLY with active board units
         allUnits.Clear();
         int activePlayerUnits = 0;
         int activeEnemyUnits = 0;
 
         foreach (var u in rawUnits)
         {
-            // CRITICAL FIX: Skip dead units and BENCH units completely
             if (u == null || u.isOnBench || u.currentHealth <= 0) continue;
 
             allUnits.Add(u);
@@ -83,11 +80,7 @@ public class CombatManager : MonoBehaviour
             else activeEnemyUnits++;
         }
 
-        // 3. Check win/loss conditions
-        if (activePlayerUnits == 0 && activeEnemyUnits == 0)
-        {
-            return;
-        }
+        if (activePlayerUnits == 0 && activeEnemyUnits == 0) return;
 
         if (activeEnemyUnits == 0)
         {
@@ -100,7 +93,6 @@ public class CombatManager : MonoBehaviour
             return;
         }
 
-        // 4. Execute combat turns using ONLY the filtered board units
         for (int i = 0; i < allUnits.Count; i++)
         {
             Unit currentUnit = allUnits[i];
@@ -147,14 +139,13 @@ public class CombatManager : MonoBehaviour
             }
         }
 
-        // Delegate next wave generation to the RoundManager
         if (RoundManager.Instance != null)
         {
             RoundManager.Instance.AdvanceRound();
         }
         else if (gridManager != null)
         {
-            gridManager.SpawnEnemyWave(); // Fallback if RoundManager is missing
+            gridManager.SpawnEnemyWave();
         }
 
         attackCooldowns.Clear();
@@ -173,9 +164,15 @@ public class CombatManager : MonoBehaviour
 
     private void ExecuteUnitTurn(Unit unit)
     {
-        if (unit == null || unit.data == null || unit.currentHealth <= 0 || unit.isMoving) return;
+        if (unit == null || unit.data == null || unit.currentHealth <= 0 || unit.isMoving || unit.isStunned) return;
 
-        // FindTarget will now strictly only see other deployed board units
+        // 1. Cast Ultimate if Mana is full
+        if (unit.CanCastUltimate())
+        {
+            unit.CastUltimate(allUnits, gridManager);
+            return;
+        }
+
         Unit target = unit.FindTarget(allUnits);
         if (target == null) return;
 
@@ -215,11 +212,16 @@ public class CombatManager : MonoBehaviour
 
     private void PerformCombatAction(Unit attacker, Unit target)
     {
+        if (attacker.data.archetype != UnitArchetype.Support && !attacker.IsValidEnemyTarget(target)) return;
+
         string attackerName = attacker.data.unitName;
         string targetName = target.data.unitName;
         int actionValue = attacker.GetEffectiveAttackDamage();
 
         attacker.PlayAttackAnimation(target.transform.position);
+
+        // Attacking awards mana
+        attacker.GainMana(attacker.manaGainOnAttack);
 
         if (attacker.data.archetype == UnitArchetype.Support)
         {
@@ -230,7 +232,7 @@ public class CombatManager : MonoBehaviour
         {
             int dr = target.GetItemFlatDamageReduction();
             int finalDmg = Mathf.Max(1, actionValue - dr);
-            target.TakeDamage(finalDmg);
+            target.TakeDamage(finalDmg, attacker);
 
             if (target.currentHealth <= 0)
             {

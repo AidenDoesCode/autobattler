@@ -11,21 +11,37 @@ public class Unit : MonoBehaviour
     public int gridX;
     public int gridZ;
 
-    [Header("Bench Coordinates")]
-    public bool isOnBench = false;
-    public int benchSlotIndex = -1;
-
     [Header("Team Alignment")]
     public bool isPlayerTeam = true;
 
-    [Header("Star Level Progression")]
+    [Header("Star Progression")]
     public int starLevel = 1;
-    public int scaledMaxHealth;
-    public int scaledAttackDamage;
 
-    [Header("Equipped Items (Max 3)")]
+    [Header("Mana & Ultimate")]
+    public int currentMana = 0;
+    public int maxMana = 100;
+    public int manaGainOnAttack = 20;
+    public int manaGainOnDamaged = 10;
+    public bool isStunned = false;
+
+    [Header("Items")]
     public List<ItemData> equippedItems = new List<ItemData>();
     public const int MaxItems = 3;
+
+    [Header("Synergy Stat Buffs")]
+    public int bonusSynergyHealth = 0;
+    public int bonusSynergyDamage = 0;
+
+    // Backward-compatible alias for SynergyManager
+    public int scaledMaxHealth
+    {
+        get => GetEffectiveMaxHealth();
+        set => bonusSynergyHealth = Mathf.Max(0, value - (data != null ? data.maxHealth : 100));
+    }
+
+    [Header("Bench Placement")]
+    public bool isOnBench = false;
+    public int benchSlotIndex = -1;
 
     [Header("Visual Components")]
     public UnitHealthBarUI healthBar;
@@ -38,9 +54,10 @@ public class Unit : MonoBehaviour
 
     private Renderer unitRenderer;
     private Color originalColor = Color.white;
-    private Vector3 basePrefabScale = Vector3.one;
     private Coroutine attackRoutine;
     private Coroutine flinchRoutine;
+    private Coroutine stunRoutine;
+    private Vector3 baseScale = Vector3.one;
 
     void Awake()
     {
@@ -49,39 +66,24 @@ public class Unit : MonoBehaviour
             healthBar = GetComponentInChildren<UnitHealthBarUI>();
         }
 
-        basePrefabScale = transform.localScale;
-
         unitRenderer = GetComponentInChildren<Renderer>();
         if (unitRenderer != null && unitRenderer.material.HasProperty("_Color"))
         {
             originalColor = unitRenderer.material.color;
         }
+
+        baseScale = transform.localScale;
     }
 
     void Start()
     {
-        InitializeStats();
-        UpdateHealthUI();
-    }
-
-    void OnDisable()
-    {
-        if (flinchRoutine != null)
-        {
-            StopCoroutine(flinchRoutine);
-            flinchRoutine = null;
-        }
-        RestoreOriginalColor();
-    }
-
-    public void InitializeStats()
-    {
         if (data != null)
         {
-            if (scaledMaxHealth <= 0) scaledMaxHealth = data.maxHealth;
-            if (scaledAttackDamage <= 0) scaledAttackDamage = data.attackDamage;
             currentHealth = GetEffectiveMaxHealth();
         }
+
+        currentMana = 0;
+        UpdateHealthUI();
     }
 
     public void Initialize(int x, int z, BoardGridManager gridManager)
@@ -91,7 +93,6 @@ public class Unit : MonoBehaviour
         SaveValidPosition(x, z, gridManager.GetWorldPosition(x, z), onBench: false, benchIndex: -1);
         transform.position = lastValidWorldPos;
 
-        InitializeStats();
         UpdateHealthUI();
     }
 
@@ -106,104 +107,194 @@ public class Unit : MonoBehaviour
         benchSlotIndex = benchIndex;
     }
 
-    public void UpgradeStarLevel(int newStarLevel)
+    // --- Mana & Ultimates ---
+
+    public void GainMana(int amount)
     {
-        starLevel = newStarLevel;
+        if (currentMana >= maxMana) return;
 
-        float statMultiplier = (starLevel == 2) ? 1.8f : 3.2f;
-        scaledMaxHealth = Mathf.RoundToInt(data.maxHealth * statMultiplier);
-        scaledAttackDamage = Mathf.RoundToInt(data.attackDamage * statMultiplier);
-        currentHealth = GetEffectiveMaxHealth();
-
-        float visualScaleMultiplier = 1f + (starLevel - 1) * 0.08f;
-        transform.localScale = basePrefabScale * visualScaleMultiplier;
-
-        Debug.Log($"<color=yellow>[Star-Up]</color> {data.unitName} upgraded to {starLevel}-Star! (HP: {scaledMaxHealth}, DMG: {scaledAttackDamage})");
-
+        currentMana = Mathf.Min(maxMana, currentMana + amount);
         UpdateHealthUI();
+
+        if (currentMana >= maxMana)
+        {
+            Debug.Log($"<color=cyan>[Ultimate Ready]</color> {data.unitName} is fully charged!");
+        }
     }
 
-    // --- Item Stat Bonuses ---
+    public bool CanCastUltimate() => currentMana >= maxMana && !isStunned && !isMoving;
 
-    public int GetItemBonusHealth()
+    public void CastUltimate(List<Unit> allUnits, BoardGridManager gridManager)
     {
-        int sum = 0;
-        foreach (var it in equippedItems) if (it != null) sum += it.bonusHealth;
-        return sum;
+        if (!CanCastUltimate()) return;
+
+        currentMana = 0;
+        UpdateHealthUI();
+
+        if (healthBar != null)
+        {
+            healthBar.ShowCombatPopup(0, false, data.UltimateName, new Color(0.2f, 0.8f, 1f));
+        }
+
+        StartCoroutine(UltimateCastPulseRoutine());
+
+        switch (data.UltimateType)
+        {
+            case UnitUltimate.CleaveStun:
+                ExecuteMeleeCleaveStun(allUnits, gridManager);
+                break;
+
+            case UnitUltimate.Snipe:
+                ExecuteRangedBarrage(allUnits);
+                break;
+
+            case UnitUltimate.HealingChorus:
+                ExecuteSupportAoeChorus(allUnits);
+                break;
+
+            case UnitUltimate.SecondWind:
+                Heal(Mathf.RoundToInt(GetEffectiveAttackDamage() * data.UltimateMultiplier));
+                break;
+        }
     }
 
-    public int GetItemBonusDamage()
+    private void ExecuteMeleeCleaveStun(List<Unit> allUnits, BoardGridManager gridManager)
     {
-        int sum = 0;
-        foreach (var it in equippedItems) if (it != null) sum += it.bonusAttackDamage;
-        return sum;
+        int ultDamage = Mathf.RoundToInt(GetEffectiveAttackDamage() * data.UltimateMultiplier);
+        Debug.Log($"<color=red>[ULTIMATE: {data.UltimateName}]</color> {data.unitName} smashes the ground for {ultDamage} DMG!");
+
+        foreach (var u in allUnits)
+        {
+            if (!IsValidEnemyTarget(u)) continue;
+
+            int dist = Mathf.Max(Mathf.Abs(u.gridX - gridX), Mathf.Abs(u.gridZ - gridZ));
+            if (dist <= data.ultimateRadius)
+            {
+                u.TakeDamage(ultDamage, this);
+                if (u.currentHealth > 0) u.ApplyStun(data.ultimateStunDuration);
+            }
+        }
     }
 
-    public int GetItemFlatDamageReduction()
+    private void ExecuteRangedBarrage(List<Unit> allUnits)
     {
-        int sum = 0;
-        foreach (var it in equippedItems) if (it != null) sum += it.flatDamageReduction;
-        return sum;
+        Unit weakestEnemy = null;
+        float lowestHpRatio = float.MaxValue;
+
+        foreach (var u in allUnits)
+        {
+            if (!IsValidEnemyTarget(u)) continue;
+
+            float ratio = (float)u.currentHealth / u.GetEffectiveMaxHealth();
+            if (ratio < lowestHpRatio)
+            {
+                lowestHpRatio = ratio;
+                weakestEnemy = u;
+            }
+        }
+
+        if (weakestEnemy != null)
+        {
+            int barrageDmg = Mathf.RoundToInt(GetEffectiveAttackDamage() * data.UltimateMultiplier);
+            Debug.Log($"<color=orange>[ULTIMATE: {data.UltimateName}]</color> {data.unitName} snipes {weakestEnemy.data.unitName} for {barrageDmg} DMG!");
+            weakestEnemy.TakeDamage(barrageDmg, this);
+        }
     }
 
-    public float GetItemBonusAttackSpeed()
+    private void ExecuteSupportAoeChorus(List<Unit> allUnits)
     {
-        float sum = 0f;
-        foreach (var it in equippedItems) if (it != null) sum += it.bonusAttackSpeed;
-        return sum;
+        int healAmount = Mathf.RoundToInt(GetEffectiveAttackDamage() * data.UltimateMultiplier);
+        Debug.Log($"<color=green>[ULTIMATE: {data.UltimateName}]</color> {data.unitName} heals all allies for {healAmount} HP!");
+
+        foreach (var u in allUnits)
+        {
+            if (u == null || !u.gameObject.activeInHierarchy || u.isPlayerTeam != isPlayerTeam || u.isOnBench || u.currentHealth <= 0) continue;
+            u.Heal(healAmount);
+        }
     }
+
+    public void ApplyStun(float duration)
+    {
+        if (stunRoutine != null) StopCoroutine(stunRoutine);
+        stunRoutine = StartCoroutine(StunRoutine(duration));
+    }
+
+    private IEnumerator StunRoutine(float duration)
+    {
+        isStunned = true;
+        if (healthBar != null) healthBar.ShowCombatPopup(0, false, "STUNNED!", Color.yellow);
+
+        yield return new WaitForSeconds(duration);
+        isStunned = false;
+    }
+
+    private IEnumerator UltimateCastPulseRoutine()
+    {
+        Vector3 origScale = transform.localScale;
+        transform.localScale = origScale * 1.25f;
+        yield return new WaitForSeconds(0.18f);
+        transform.localScale = origScale;
+    }
+
+    // --- Stats & Combat ---
 
     public int GetEffectiveAttackDamage()
     {
-        int baseVal = scaledAttackDamage > 0 ? scaledAttackDamage : (data != null ? data.attackDamage : 10);
-        return baseVal + GetItemBonusDamage();
+        if (data == null) return 10;
+        float starMult = Mathf.Pow(1.8f, starLevel - 1);
+        int baseVal = Mathf.RoundToInt(data.attackDamage * starMult);
+        return baseVal + GetItemBonusAttackDamage() + bonusSynergyDamage;
     }
 
     public int GetEffectiveMaxHealth()
     {
-        int baseVal = scaledMaxHealth > 0 ? scaledMaxHealth : (data != null ? data.maxHealth : 100);
-        return baseVal + GetItemBonusHealth();
+        if (data == null) return 100;
+        float starMult = Mathf.Pow(1.8f, starLevel - 1);
+        int baseVal = Mathf.RoundToInt(data.maxHealth * starMult);
+        return baseVal + GetItemBonusHealth() + bonusSynergyHealth;
     }
 
-    /// <summary>
-    /// Attempts to equip or fuse an item onto this unit.
-    /// </summary>
-    public bool TryEquipOrFuseItem(ItemData newItem, ItemDatabase db)
+    public bool IsValidEnemyTarget(Unit target)
     {
-        if (newItem == null) return false;
+        return target != null && target != this &&
+            target.isPlayerTeam != isPlayerTeam &&
+            target.gameObject.activeInHierarchy && !target.isOnBench &&
+            target.currentHealth > 0;
+    }
 
-        // 1. Check if an uncompleted component can fuse with newItem
-        if (!newItem.isCompletedItem && db != null)
+    public void TakeDamage(int damage, Unit attacker)
+    {
+        // Reject friendly fire before health, mana, or hit effects can change.
+        if (attacker == null || !attacker.IsValidEnemyTarget(this)) return;
+
+        TakeDamage(damage);
+    }
+
+    public void TakeDamage(int damage)
+    {
+        currentHealth = Mathf.Max(0, currentHealth - damage);
+        GainMana(manaGainOnDamaged);
+
+        UpdateHealthUI();
+
+        if (healthBar != null)
         {
-            for (int i = 0; i < equippedItems.Count; i++)
-            {
-                if (!equippedItems[i].isCompletedItem)
-                {
-                    ItemData combined = db.CombineItems(equippedItems[i], newItem);
-                    if (combined != null)
-                    {
-                        Debug.Log($"<color=cyan>[Item Fuse]</color> {equippedItems[i].itemName} + {newItem.itemName} -> <b>{combined.itemName}</b> on {data.unitName}!");
-                        equippedItems[i] = combined;
-                        currentHealth += combined.bonusHealth;
-                        UpdateHealthUI();
-                        return true;
-                    }
-                }
-            }
+            healthBar.ShowCombatPopup(damage, isHeal: false);
         }
 
-        // 2. Otherwise, equip into an empty slot if under capacity
-        if (equippedItems.Count < MaxItems)
-        {
-            equippedItems.Add(newItem);
-            currentHealth += newItem.bonusHealth;
-            Debug.Log($"<color=yellow>[Equip]</color> Equipped {newItem.itemName} onto {data.unitName} ({equippedItems.Count}/{MaxItems})");
-            UpdateHealthUI();
-            return true;
-        }
+        if (flinchRoutine != null) StopCoroutine(flinchRoutine);
+        flinchRoutine = StartCoroutine(FlinchRoutine());
+    }
 
-        Debug.LogWarning($"[Items] {data.unitName} already has max items ({MaxItems})!");
-        return false;
+    public void Heal(int amount)
+    {
+        currentHealth = Mathf.Min(GetEffectiveMaxHealth(), currentHealth + amount);
+        UpdateHealthUI();
+
+        if (healthBar != null)
+        {
+            healthBar.ShowCombatPopup(amount, isHeal: true);
+        }
     }
 
     public void PlayAttackAnimation(Vector3 targetPosition)
@@ -239,55 +330,12 @@ public class Unit : MonoBehaviour
         transform.position = startPos;
     }
 
-    public void TakeDamage(int damage)
-    {
-        currentHealth = Mathf.Max(0, currentHealth - damage);
-        UpdateHealthUI();
-
-        SpawnPopup(damage, isHeal: false);
-
-        if (currentHealth > 0)
-        {
-            if (flinchRoutine != null) StopCoroutine(flinchRoutine);
-            flinchRoutine = StartCoroutine(FlinchRoutine());
-        }
-        else
-        {
-            RestoreOriginalColor();
-        }
-    }
-
-    public void Heal(int amount)
-    {
-        currentHealth = Mathf.Min(GetEffectiveMaxHealth(), currentHealth + amount);
-        UpdateHealthUI();
-
-        SpawnPopup(amount, isHeal: true);
-    }
-
-    private void SpawnPopup(int amount, bool isHeal)
-    {
-        if (healthBar != null)
-        {
-            healthBar.ShowCombatPopup(amount, isHeal);
-        }
-    }
-
     private IEnumerator FlinchRoutine()
     {
         if (unitRenderer != null && unitRenderer.material.HasProperty("_Color"))
         {
             unitRenderer.material.color = Color.red;
             yield return new WaitForSeconds(0.1f);
-            RestoreOriginalColor();
-        }
-        flinchRoutine = null;
-    }
-
-    private void RestoreOriginalColor()
-    {
-        if (unitRenderer != null && unitRenderer.material.HasProperty("_Color"))
-        {
             unitRenderer.material.color = originalColor;
         }
     }
@@ -298,34 +346,47 @@ public class Unit : MonoBehaviour
         {
             healthBar.SetTeam(isPlayerTeam);
             healthBar.UpdateHealth(currentHealth, GetEffectiveMaxHealth());
+            healthBar.UpdateMana(currentMana, maxMana);
             healthBar.UpdateStarLevel(starLevel);
             healthBar.UpdateEquippedItems(equippedItems);
         }
+    }
+
+    public void UpgradeStarLevel(int newLevel)
+    {
+        starLevel = Mathf.Clamp(newLevel, 1, 3);
+        transform.localScale = baseScale * (1f + (starLevel - 1) * 0.15f);
+
+        currentHealth = GetEffectiveMaxHealth();
+        UpdateHealthUI();
     }
 
     public void ResetToPlanningPosition(BoardGridManager gridManager)
     {
         gameObject.SetActive(true);
         isMoving = false;
+        isStunned = false;
+        currentMana = 0;
+        bonusSynergyHealth = 0;
+        bonusSynergyDamage = 0;
 
-        RestoreOriginalColor();
+        if (flinchRoutine != null) StopCoroutine(flinchRoutine);
+        if (attackRoutine != null) StopCoroutine(attackRoutine);
+        if (stunRoutine != null) StopCoroutine(stunRoutine);
+
+        if (unitRenderer != null && unitRenderer.material.HasProperty("_Color"))
+        {
+            unitRenderer.material.color = originalColor;
+        }
+
         currentHealth = GetEffectiveMaxHealth();
-
         transform.rotation = Quaternion.identity;
-        gridX = lastValidX;
-        gridZ = lastValidZ;
         transform.position = lastValidWorldPos;
 
         if (gridManager != null)
         {
-            if (isOnBench)
-            {
-                gridManager.RegisterBenchUnit(this, benchSlotIndex);
-            }
-            else
-            {
-                gridManager.RegisterUnit(this, gridX, gridZ);
-            }
+            if (isOnBench) gridManager.RegisterBenchUnit(this, benchSlotIndex);
+            else gridManager.RegisterUnit(this, lastValidX, lastValidZ);
         }
 
         UpdateHealthUI();
@@ -358,11 +419,11 @@ public class Unit : MonoBehaviour
 
         foreach (var other in allUnits)
         {
-            if (other == this || !other.gameObject.activeInHierarchy || other.currentHealth <= 0) continue;
+            if (other == this || !other.gameObject.activeInHierarchy || other.currentHealth <= 0 || other.isOnBench) continue;
 
             if (data.archetype == UnitArchetype.Support)
             {
-                if (other.isPlayerTeam == this.isPlayerTeam && other.currentHealth < other.GetEffectiveMaxHealth())
+                if (other.isPlayerTeam == isPlayerTeam && other.currentHealth < other.GetEffectiveMaxHealth())
                 {
                     float dist = Vector3.Distance(transform.position, other.transform.position);
                     if (dist < minDistance)
@@ -374,7 +435,7 @@ public class Unit : MonoBehaviour
             }
             else
             {
-                if (other.isPlayerTeam != this.isPlayerTeam)
+                if (other.isPlayerTeam != isPlayerTeam)
                 {
                     float dist = Vector3.Distance(transform.position, other.transform.position);
                     if (dist < minDistance)
@@ -387,5 +448,70 @@ public class Unit : MonoBehaviour
         }
 
         return bestTarget;
+    }
+
+    // --- Items ---
+
+    public bool TryEquipOrFuseItem(ItemData newItem, ItemDatabase database)
+    {
+        if (newItem == null || isOnBench) return false;
+
+        // 1. Check if there is an uncompleted component on this unit that can fuse with newItem
+        if (!newItem.isCompletedItem && database != null)
+        {
+            for (int i = 0; i < equippedItems.Count; i++)
+            {
+                ItemData existing = equippedItems[i];
+                if (existing != null && !existing.isCompletedItem)
+                {
+                    // Fixed: Calling CombineItems instead of GetCombination
+                    ItemData recipeResult = database.CombineItems(existing, newItem);
+                    if (recipeResult != null)
+                    {
+                        equippedItems.RemoveAt(i);
+                        equippedItems.Add(recipeResult);
+                        UpdateHealthUI();
+                        return true;
+                    }
+                }
+            }
+        }
+
+        if (equippedItems.Count < MaxItems)
+        {
+            equippedItems.Add(newItem);
+            UpdateHealthUI();
+            return true;
+        }
+
+        return false;
+    }
+
+    public int GetItemBonusAttackDamage()
+    {
+        int bonus = 0;
+        foreach (var item in equippedItems) if (item != null) bonus += item.bonusAttackDamage;
+        return bonus;
+    }
+
+    public int GetItemBonusHealth()
+    {
+        int bonus = 0;
+        foreach (var item in equippedItems) if (item != null) bonus += item.bonusHealth;
+        return bonus;
+    }
+
+    public float GetItemBonusAttackSpeed()
+    {
+        float bonus = 0f;
+        foreach (var item in equippedItems) if (item != null) bonus += item.bonusAttackSpeed;
+        return bonus;
+    }
+
+    public int GetItemFlatDamageReduction()
+    {
+        int reduction = 0;
+        foreach (var item in equippedItems) if (item != null) reduction += item.flatDamageReduction;
+        return reduction;
     }
 }

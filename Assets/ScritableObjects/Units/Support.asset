@@ -19,3 +19,8 @@ MonoBehaviour:
   attackRange: 2
   attackSpeed: 1
   moveSpeed: 2.5
+  ultimate: 3
+  ultimateName: Divine Chorus
+  ultimatePowerMultiplier: 0
+  ultimateRadius: 1
+  ultimateStunDuration: 1.5

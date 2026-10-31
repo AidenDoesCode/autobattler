@@ -19,3 +19,8 @@ MonoBehaviour:
   attackRange: 4
   attackSpeed: 2
   moveSpeed: 2
+  ultimate: 2
+  ultimateName: Snipe Barrage
+  ultimatePowerMultiplier: 0
+  ultimateRadius: 1
+  ultimateStunDuration: 1.5

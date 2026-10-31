@@ -31,6 +31,7 @@ public class AuctionUIController : MonoBehaviour
     private Label inspectHp;
     private Label inspectAd;
     private Label inspectExtra;
+    private Label inspectUltimate;
     private Button inspectCloseBtn;
 
     private int localBid = 0;
@@ -87,6 +88,7 @@ public class AuctionUIController : MonoBehaviour
     private void OnUIReload(PanelRenderer renderer, VisualElement rootElement, int version)
     {
         if (rootElement == null) return;
+        HudHoverHighlight.Install(rootElement);
         root = rootElement;
 
         auctionRoot = root.Q<VisualElement>("auction-root");
@@ -113,6 +115,7 @@ public class AuctionUIController : MonoBehaviour
         inspectHp = root.Q<Label>("auction-inspect-hp");
         inspectAd = root.Q<Label>("auction-inspect-ad");
         inspectExtra = root.Q<Label>("auction-inspect-extra");
+        inspectUltimate = root.Q<Label>("auction-inspect-ultimate");
         inspectCloseBtn = root.Q<Button>("auction-inspect-close-btn");
 
         if (bidMinusBtn != null) bidMinusBtn.clicked += () => ModifyBid(-1);
@@ -160,6 +163,8 @@ public class AuctionUIController : MonoBehaviour
         if (inspectHp != null) inspectHp.text = $"Base HP: {currentPrizeUnit.maxHealth}";
         if (inspectAd != null) inspectAd.text = $"Base Attack: {currentPrizeUnit.attackDamage}";
         if (inspectExtra != null) inspectExtra.text = $"Range: {currentPrizeUnit.attackRange:F1}  |  Speed: {currentPrizeUnit.moveSpeed:F1}";
+
+        if (inspectUltimate != null) inspectUltimate.text = $"ULTIMATE: {currentPrizeUnit.UltimateName}\nCasts automatically at full mana\n{currentPrizeUnit.GetUltimateDescription(currentPrizeUnit.attackDamage)}";
 
         inspectModal.style.display = DisplayStyle.Flex;
     }

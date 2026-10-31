@@ -42,6 +42,7 @@ public class BattleUIController : MonoBehaviour
     private void OnUIReload(PanelRenderer renderer, VisualElement rootElement, int version)
     {
         if (rootElement == null) return;
+        HudHoverHighlight.Install(rootElement);
 
         startBattleButton = rootElement.Q<Button>("StartBattleButton");
         if (startBattleButton != null)
@@ -59,6 +60,7 @@ public class BattleUIController : MonoBehaviour
         UIDocument uiDocument = Object.FindAnyObjectByType<UIDocument>();
         if (uiDocument == null || uiDocument.rootVisualElement == null) yield break;
 
+        HudHoverHighlight.Install(uiDocument.rootVisualElement);
         startBattleButton = uiDocument.rootVisualElement.Q<Button>("StartBattleButton");
         if (startBattleButton != null)
         {

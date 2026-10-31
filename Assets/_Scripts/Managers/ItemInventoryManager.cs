@@ -1,6 +1,7 @@
 using UnityEngine;
 using UnityEngine.InputSystem;
 using System;
+using System.Collections.Generic;
 
 public class ItemInventoryManager : MonoBehaviour
 {
@@ -12,6 +13,35 @@ public class ItemInventoryManager : MonoBehaviour
     public ItemData[] inventorySlots;
 
     public event Action OnInventoryChanged;
+    public event Action<ItemData, Vector3, int> OnItemRecovered;
+    private readonly Queue<ItemData> recoveredOverflow = new Queue<ItemData>();
+    public int OverflowCount => recoveredOverflow.Count;
+
+    // Recovery is guaranteed: a full tray queues items until a slot becomes free.
+    public void RecoverUnitItems(Unit unit)
+    {
+        if (unit == null) return;
+        ItemData[] items = unit.equippedItems.ToArray();
+        unit.equippedItems.Clear();
+        FillRecoveredSlots();
+        foreach (ItemData item in items)
+        {
+            if (item == null) continue;
+            int slot = Array.FindIndex(inventorySlots, entry => entry == null);
+            if (slot >= 0) inventorySlots[slot] = item;
+            else recoveredOverflow.Enqueue(item);
+            OnItemRecovered?.Invoke(item, unit.transform.position + Vector3.up, slot);
+        }
+        OnInventoryChanged?.Invoke();
+    }
+
+    private void FillRecoveredSlots()
+    {
+        for (int i = 0; i < inventorySlots.Length && recoveredOverflow.Count > 0; i++)
+        {
+            if (inventorySlots[i] == null) inventorySlots[i] = recoveredOverflow.Dequeue();
+        }
+    }
 
     private Camera mainCamera;
     private BoardGridManager gridManager;
@@ -159,6 +189,7 @@ public class ItemInventoryManager : MonoBehaviour
             if (equipped)
             {
                 inventorySlots[fromSlot] = null;
+                FillRecoveredSlots();
                 OnInventoryChanged?.Invoke();
                 return;
             }

@@ -40,6 +40,17 @@ public class UnitDragHandler : MonoBehaviour
         if (gridManager == null) gridManager = Object.FindAnyObjectByType<BoardGridManager>();
         if (gameManager == null) gameManager = Object.FindAnyObjectByType<GameManager>();
 
+        if (Keyboard.current != null && Keyboard.current.eKey.wasPressedThisFrame && unit != null)
+        {
+            Ray sellRay = mainCamera.ScreenPointToRay(Mouse.current.position.ReadValue());
+            bool hovered = Physics.Raycast(sellRay, out RaycastHit sellHit, 200f) && sellHit.collider.GetComponentInParent<Unit>() == unit;
+            if ((isDragging || hovered) && EconomyManager.Instance != null && EconomyManager.Instance.TrySellUnit(unit))
+            {
+                EndSellDrag();
+                return;
+            }
+        }
+
         // 1. Right-Click on Unit to inspect directly
         if (Mouse.current.rightButton.wasPressedThisFrame)
         {
@@ -85,6 +96,14 @@ public class UnitDragHandler : MonoBehaviour
                     gridManager.ResetAllTileColors(Color.white);
                 }
 
+                if (ShopUIController.Instance != null) ShopUIController.Instance.ShowSellArea(false);
+                if (ShopUIController.Instance != null && ShopUIController.Instance.IsOverSellArea(mousePos) &&
+                    EconomyManager.Instance != null && EconomyManager.Instance.TrySellUnit(unit))
+                {
+                    EndSellDrag();
+                    return;
+                }
+
                 float dragDistance = Vector2.Distance(mousePos, clickStartPosition);
 
                 if (dragDistance < DragThresholdPixels)
@@ -103,6 +122,17 @@ public class UnitDragHandler : MonoBehaviour
         }
     }
 
+    private void EndSellDrag()
+    {
+        isDragging = false;
+        if (gridManager != null) gridManager.ResetAllTileColors(Color.white);
+        if (ShopUIController.Instance != null)
+        {
+            ShopUIController.Instance.ShowSellArea(false);
+            ShopUIController.Instance.CloseInspection();
+        }
+    }
+
     private void TryStartDrag()
     {
         if (gameManager != null && gameManager.currentState != GameManager.GameState.Planning) return;
@@ -114,6 +144,7 @@ public class UnitDragHandler : MonoBehaviour
         if (unitCollider != null && unitCollider.Raycast(ray, out RaycastHit hit, 200f))
         {
             isDragging = true;
+            if (ShopUIController.Instance != null) ShopUIController.Instance.ShowSellArea(true);
             clickStartPosition = mousePos;
             dragYLevel = transform.position.y + 0.35f;
 

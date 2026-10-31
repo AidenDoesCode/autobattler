@@ -19,3 +19,8 @@ MonoBehaviour:
   attackRange: 1.5
   attackSpeed: 1
   moveSpeed: 3
+  ultimate: 4
+  ultimateName: Second Wind
+  ultimatePowerMultiplier: 0
+  ultimateRadius: 1
+  ultimateStunDuration: 1.5
