@@ -1,7 +1,6 @@
 using UnityEngine;
 using UnityEngine.InputSystem;
 using System;
-using System.Collections.Generic;
 
 public class ItemInventoryManager : MonoBehaviour
 {
@@ -80,7 +79,6 @@ public class ItemInventoryManager : MonoBehaviour
         if (inventorySlots[slotIndex] == null) return;
 
         DraggingSlotIndex = slotIndex;
-        Debug.Log($"<color=cyan>[Items]</color> Started dragging: {inventorySlots[slotIndex].itemName}");
     }
 
     public void CancelItemDrag()
@@ -113,53 +111,49 @@ public class ItemInventoryManager : MonoBehaviour
 
         Unit targetUnit = null;
 
-        // 1. Direct unit collider raycast check (depth-sorted)
-        RaycastHit[] hits = Physics.RaycastAll(ray, 300f);
-        Array.Sort(hits, (a, b) => a.distance.CompareTo(b.distance));
-
-        foreach (var hit in hits)
+        // Pure Grid-Based Detection (Ignores 3D Colliders to prevent perspective mismatches)
+        Plane groundPlane = new Plane(Vector3.up, Vector3.zero);
+        if (groundPlane.Raycast(ray, out float enterDist))
         {
-            Unit u = hit.collider.GetComponentInParent<Unit>();
-            // Strict condition: Must be player team, alive, and NOT on the bench
-            if (u != null && u.isPlayerTeam && u.currentHealth > 0 && !u.isOnBench)
-            {
-                targetUnit = u;
-                break;
-            }
-        }
+            Vector3 worldHit = ray.GetPoint(enterDist);
+            
+            float closestDist = float.MaxValue;
+            int closestX = -1;
+            int closestZ = -1;
 
-        // 2. Fallback: Check if the ray hit the ground plane on an active board tile
-        if (targetUnit == null && gridManager != null)
-        {
-            Plane groundPlane = new Plane(Vector3.up, Vector3.zero);
-            if (groundPlane.Raycast(ray, out float enterDist))
+            // Find the absolute closest tile center to the drop point
+            for (int x = 0; x < gridManager.width; x++)
             {
-                Vector3 worldHit = ray.GetPoint(enterDist);
-                float minTileDist = 1.2f; // Snapping radius around tile centers
-
-                for (int x = 0; x < gridManager.width; x++)
+                // Only loop through player rows (items cannot be dropped on enemies)
+                for (int z = 0; z <= gridManager.maxPlayerRow; z++) 
                 {
-                    for (int z = 0; z <= gridManager.maxPlayerRow; z++)
-                    {
-                        Vector3 tileCenter = gridManager.GetWorldPosition(x, z);
-                        float dist = Vector2.Distance(new Vector2(worldHit.x, worldHit.z), new Vector2(tileCenter.x, tileCenter.z));
+                    Vector3 tileCenter = gridManager.GetWorldPosition(x, z);
+                    float dist = Vector2.Distance(new Vector2(worldHit.x, worldHit.z), new Vector2(tileCenter.x, tileCenter.z));
 
-                        if (dist < minTileDist)
-                        {
-                            Unit occupant = gridManager.GetUnitAt(x, z);
-                            if (occupant != null && occupant.isPlayerTeam && occupant.currentHealth > 0 && !occupant.isOnBench)
-                            {
-                                targetUnit = occupant;
-                                minTileDist = dist;
-                            }
-                        }
+                    if (dist < closestDist)
+                    {
+                        closestDist = dist;
+                        closestX = x;
+                        closestZ = z;
                     }
+                }
+            }
+
+            // Check if dropped directly over a specific tile's boundaries
+            if (closestDist <= (gridManager.tileSize * 0.65f) && closestX != -1 && closestZ != -1)
+            {
+                Unit occupant = gridManager.GetUnitAt(closestX, closestZ);
+                
+                // Verify the occupant is a player unit, alive, and NOT on the bench
+                if (occupant != null && occupant.isPlayerTeam && occupant.currentHealth > 0 && !occupant.isOnBench)
+                {
+                    targetUnit = occupant;
                 }
             }
         }
 
-        // 3. Equip or return to tray
-        if (targetUnit != null && !targetUnit.isOnBench)
+        // Equip the item or return it to the tray
+        if (targetUnit != null)
         {
             bool equipped = targetUnit.TryEquipOrFuseItem(itemToEquip, itemDatabase);
             if (equipped)

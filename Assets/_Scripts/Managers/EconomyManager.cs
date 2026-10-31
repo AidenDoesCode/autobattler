@@ -21,7 +21,6 @@ public class EconomyManager : MonoBehaviour
     public int passiveRoundXP = 2;
 
     // XP required to reach the NEXT level: Index represents current level
-    // Level 1 -> 2: 2 XP, Level 2 -> 3: 4 XP, etc.
     private readonly int[] xpToNextLevel = new int[] { 0, 2, 4, 8, 14, 24, 36, 54, 76 };
 
     [Header("Streaks")]
@@ -42,7 +41,6 @@ public class EconomyManager : MonoBehaviour
         }
         Instance = this;
 
-        // Fallback safeguard: if Unity's Inspector serialized 0, reset to 10
         if (currentGold <= 0)
         {
             currentGold = 10;
@@ -136,7 +134,6 @@ public class EconomyManager : MonoBehaviour
         BoardGridManager grid = UnityEngine.Object.FindAnyObjectByType<BoardGridManager>();
         if (grid != null)
         {
-            // Direct 1:1 scaling: Level 1 = 1 unit, Level 2 = 2 units, etc.
             grid.maxBoardUnits = currentLevel;
         }
     }
@@ -177,9 +174,6 @@ public class EconomyManager : MonoBehaviour
         return 0;
     }
 
-    /// <summary>
-    /// Returns probability weights [Tier1, Tier2, Tier3] based on player level.
-    /// </summary>
     public float[] GetTierOdds()
     {
         switch (currentLevel)

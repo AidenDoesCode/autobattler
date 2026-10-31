@@ -977,6 +977,10 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: fd1a8955376583044a44f79204ace124, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::CombatController
+  lootOrbPrefab: {fileID: 2387130673437913193, guid: 8125dd83b39cef04db25a811ea33588a, type: 3}
+  itemDropChance: 1
+  goldDropChance: 0.389
+  dropItemPool: []
 --- !u!1 &1745479807
 GameObject:
   m_ObjectHideFlags: 0
@@ -1128,10 +1132,14 @@ MonoBehaviour:
   height: 7
   tileSize: 1
   tilePrefab: {fileID: 8250450981127602593, guid: d417e441dc0a805449b8c11b943b4896, type: 3}
+  benchTilePrefab: {fileID: 8250450981127602593, guid: d417e441dc0a805449b8c11b943b4896, type: 3}
+  unitPrefab: {fileID: 4364211808588923933, guid: 0e958074a00b04e988dd68421c8a03d1, type: 3}
+  defaultEnemyPrefab: {fileID: 4364211808588923933, guid: 0e958074a00b04e988dd68421c8a03d1, type: 3}
   maxPlayerRow: 1
-  benchSlotCount: 8
-  benchZDistance: 1.35
+  enemyMinRow: 5
   maxBoardUnits: 3
+  benchSlotCount: 8
+  benchZDistance: 1.4
 --- !u!1 &2065376540
 GameObject:
   m_ObjectHideFlags: 0

@@ -175,12 +175,12 @@ public class ShopUIController : MonoBehaviour
         if (gridManager != null && boardCapLabel != null)
         {
             int current = gridManager.GetCurrentBoardUnitCount();
-            int max = gridManager.maxBoardUnits;
+            int max = gridManager.GetMaxBoardUnits();
             boardCapLabel.text = $"Units: {current} / {max}";
             boardCapLabel.style.color = current > max ? new Color(1f, 0.3f, 0.3f) : Color.white;
         }
 
-        // Direct per-frame cursor tracking mapped precisely to panel space
+        // Direct per-frame cursor tracking mapped to UI panel space
         if (dragGhost != null && dragGhost.style.display == DisplayStyle.Flex && Mouse.current != null && root != null && root.panel != null)
         {
             Vector2 mouseScreenPos = Mouse.current.position.ReadValue();
@@ -191,7 +191,7 @@ public class ShopUIController : MonoBehaviour
             dragGhost.style.top = panelPos.y;
         }
 
-        // Right-click empty backdrop / ground closes inspection card
+        // Right-click empty backdrop closes inspection modal
         if (Mouse.current != null && Mouse.current.rightButton.wasPressedThisFrame && !ItemInventoryManager.Instance.IsDraggingItem)
         {
             if (inspectionModal != null && inspectionModal.style.display == DisplayStyle.Flex)
@@ -279,7 +279,7 @@ public class ShopUIController : MonoBehaviour
             lockShopButton.clicked += OnLockShopClicked;
         }
 
-        // Item Tray Elements (8 slots with right-click inspection and left-click drag)
+        // Item Tray Elements (8 slots)
         itemSlotElements = new VisualElement[8];
         for (int i = 0; i < 8; i++)
         {
@@ -380,7 +380,7 @@ public class ShopUIController : MonoBehaviour
 
                 card.RegisterCallback<PointerDownEvent>(evt =>
                 {
-                    if (evt.button == 1) // Right Click
+                    if (evt.button == 1) // Right Click to inspect unit offer
                     {
                         if (ShopManager.Instance != null && ShopManager.Instance.currentShopUnits != null &&
                             slotIndex < ShopManager.Instance.currentShopUnits.Length &&
@@ -426,7 +426,8 @@ public class ShopUIController : MonoBehaviour
         inspectTitle.text = unit.data.unitName;
 
         string stars = unit.starLevel == 3 ? "★★★" : (unit.starLevel == 2 ? "★★" : "★");
-        inspectSubtitle.text = $"{stars} • {unit.data.archetype} ({unit.data.goldCost}g)";
+        string location = unit.isOnBench ? "Bench" : $"Board ({unit.gridX}, {unit.gridZ})";
+        inspectSubtitle.text = $"{stars} • {unit.data.archetype} • {location}";
         inspectSubtitle.style.color = unit.starLevel >= 3 ? new Color(1f, 0.84f, 0f) : new Color(0.85f, 0.90f, 0.95f);
 
         inspectStatHp.text = $"HP: {unit.currentHealth} / {unit.GetEffectiveMaxHealth()}";
@@ -438,14 +439,13 @@ public class ShopUIController : MonoBehaviour
 
         inspectDescLabel.style.display = DisplayStyle.None;
 
-        // Render equipped items
         inspectItemsBox.style.display = DisplayStyle.Flex;
         inspectItemsHeader.text = $"EQUIPPED ITEMS ({unit.equippedItems.Count}/{Unit.MaxItems})";
         inspectItemsList.Clear();
 
         if (unit.equippedItems.Count == 0)
         {
-            Label noneLabel = new Label("No items equipped");
+            Label noneLabel = new Label(unit.isOnBench ? "Bench units cannot hold items" : "No items equipped");
             noneLabel.style.fontSize = 13;
             noneLabel.style.color = new Color(0.6f, 0.65f, 0.7f);
             noneLabel.style.unityFontStyleAndWeight = FontStyle.Italic;
@@ -559,7 +559,7 @@ public class ShopUIController : MonoBehaviour
         else
         {
             inspectItemsHeader.text = "SHOP OFFER";
-            Label noneLabel = new Label("Equip items once purchased");
+            Label noneLabel = new Label("Equip items once deployed to board");
             noneLabel.style.fontSize = 13;
             noneLabel.style.color = new Color(0.6f, 0.65f, 0.7f);
             noneLabel.style.unityFontStyleAndWeight = FontStyle.Italic;

@@ -40,7 +40,7 @@ public class UnitDragHandler : MonoBehaviour
         if (gridManager == null) gridManager = Object.FindAnyObjectByType<BoardGridManager>();
         if (gameManager == null) gameManager = Object.FindAnyObjectByType<GameManager>();
 
-        // 1. Right-Click on Unit to inspect directly, or on empty ground to close modal
+        // 1. Right-Click on Unit to inspect directly
         if (Mouse.current.rightButton.wasPressedThisFrame)
         {
             Vector2 mousePos = Mouse.current.position.ReadValue();
@@ -87,7 +87,6 @@ public class UnitDragHandler : MonoBehaviour
 
                 float dragDistance = Vector2.Distance(mousePos, clickStartPosition);
 
-                // If clicked without dragging significantly, inspect the unit
                 if (dragDistance < DragThresholdPixels)
                 {
                     SnapBack();
@@ -117,6 +116,11 @@ public class UnitDragHandler : MonoBehaviour
             isDragging = true;
             clickStartPosition = mousePos;
             dragYLevel = transform.position.y + 0.35f;
+
+            // Clear temporary highlight state
+            hoverBoardX = -1;
+            hoverBoardZ = -1;
+            hoverBenchIndex = -1;
         }
     }
 
@@ -130,9 +134,10 @@ public class UnitDragHandler : MonoBehaviour
 
         Vector3 currentFlatPos = new Vector3(transform.position.x, 0, transform.position.z);
 
+        // Scan board tiles
         for (int x = 0; x < gridManager.width; x++)
         {
-            for (int z = 0; z <= gridManager.maxPlayerRow; z++)
+            for (int z = 0; z < gridManager.height; z++)
             {
                 Vector3 tilePos = gridManager.GetWorldPosition(x, z);
                 float dist = Vector3.Distance(currentFlatPos, new Vector3(tilePos.x, 0, tilePos.z));
@@ -146,10 +151,11 @@ public class UnitDragHandler : MonoBehaviour
             }
         }
 
+        // Scan bench tiles
         for (int i = 0; i < gridManager.benchSlotCount; i++)
         {
             Vector3 benchPos = gridManager.GetBenchWorldPosition(i);
-            float dist = Vector3.Distance(currentFlatPos, new Vector3(benchPos.x, 0, benchPos.z)) * 0.85f;
+            float dist = Vector3.Distance(currentFlatPos, new Vector3(benchPos.x, 0, benchPos.z));
             if (dist < minDistance)
             {
                 minDistance = dist;
@@ -164,14 +170,25 @@ public class UnitDragHandler : MonoBehaviour
 
             if (nearestIsBench)
             {
-                gridManager.HighlightBenchTile(nearestBenchIdx, Color.cyan);
+                // Bench slot hover
+                Unit benchOccupant = gridManager.GetBenchUnitAt(nearestBenchIdx);
+                bool canDropOnBench = (benchOccupant == null || benchOccupant == unit || unit.isOnBench || !unit.isOnBench);
+                gridManager.HighlightBenchTile(nearestBenchIdx, canDropOnBench ? Color.cyan : Color.red);
             }
             else
             {
-                bool willExceedCap = unit.isOnBench && gridManager.GetUnitAt(nearestBX, nearestBZ) == null &&
-                                     gridManager.GetCurrentBoardUnitCount() >= gridManager.maxBoardUnits;
+                // Board tile hover
+                bool inPlayerZone = gridManager.IsInPlayerZone(nearestBX, nearestBZ);
+                Unit occupant = gridManager.GetUnitAt(nearestBX, nearestBZ);
+                bool isOccupiedByOther = (occupant != null && occupant != unit);
 
-                gridManager.HighlightTile(nearestBX, nearestBZ, willExceedCap ? Color.red : Color.green);
+                bool willExceedCap = unit.isOnBench && occupant == null &&
+                                     gridManager.GetCurrentBoardUnitCount() >= gridManager.GetMaxBoardUnits();
+
+                // Turn RED if out of player zone, tile is occupied by another unit, or moving to an empty tile exceeds cap
+                bool isInvalid = !inPlayerZone || isOccupiedByOther || willExceedCap;
+
+                gridManager.HighlightTile(nearestBX, nearestBZ, isInvalid ? Color.red : Color.green);
             }
 
             hoverIsBench = nearestIsBench;
@@ -210,20 +227,37 @@ public class UnitDragHandler : MonoBehaviour
 
         Unit occupant = gridManager.GetUnitAt(targetX, targetZ);
 
-        if (unit.isOnBench && occupant == null)
+        // Move to empty board tile
+        if (occupant == null)
         {
-            if (gridManager.GetCurrentBoardUnitCount() >= gridManager.maxBoardUnits)
+            if (unit.isOnBench && gridManager.GetCurrentBoardUnitCount() >= gridManager.GetMaxBoardUnits())
             {
-                Debug.LogWarning($"[Board Cap] Cannot deploy unit! Maximum board limit of {gridManager.maxBoardUnits} reached.");
+                Debug.LogWarning("[Board Cap] Board is full!");
                 SnapBack();
                 return;
             }
 
-            gridManager.ClearBenchPosition(unit.benchSlotIndex);
+            if (unit.isOnBench)
+            {
+                gridManager.ClearBenchPosition(unit.benchSlotIndex);
+            }
+            else
+            {
+                gridManager.ClearUnitPosition(unit.gridX, unit.gridZ);
+            }
+
             PlaceUnitOnBoard(unit, targetX, targetZ);
             return;
         }
 
+        // Drop on same spot
+        if (occupant == unit)
+        {
+            SnapBack();
+            return;
+        }
+
+        // Swap with occupant
         if (occupant != null && occupant != unit)
         {
             if (unit.isOnBench)
@@ -245,54 +279,60 @@ public class UnitDragHandler : MonoBehaviour
                 PlaceUnitOnBoard(occupant, oldX, oldZ);
                 PlaceUnitOnBoard(unit, targetX, targetZ);
             }
-            return;
-        }
-
-        if (!unit.isOnBench)
-        {
-            gridManager.ClearUnitPosition(unit.gridX, unit.gridZ);
-            PlaceUnitOnBoard(unit, targetX, targetZ);
         }
     }
 
     void HandleBenchDrop(int targetBenchIndex)
     {
-        Unit occupant = gridManager.GetBenchUnitAt(targetBenchIndex);
-
-        if (occupant != null && occupant != unit)
+        if (targetBenchIndex < 0 || targetBenchIndex >= gridManager.benchSlotCount)
         {
-            if (unit.isOnBench)
-            {
-                int oldBenchIndex = unit.benchSlotIndex;
-                gridManager.ClearBenchPosition(oldBenchIndex);
-                gridManager.ClearBenchPosition(targetBenchIndex);
-
-                PlaceUnitOnBench(occupant, oldBenchIndex);
-                PlaceUnitOnBench(unit, targetBenchIndex);
-            }
-            else
-            {
-                int oldX = unit.gridX;
-                int oldZ = unit.gridZ;
-                gridManager.ClearUnitPosition(oldX, oldZ);
-                gridManager.ClearBenchPosition(targetBenchIndex);
-
-                PlaceUnitOnBoard(occupant, oldX, oldZ);
-                PlaceUnitOnBench(unit, targetBenchIndex);
-            }
+            SnapBack();
             return;
         }
 
-        if (!unit.isOnBench)
+        Unit occupant = gridManager.GetBenchUnitAt(targetBenchIndex);
+
+        if (occupant == null)
         {
-            gridManager.ClearUnitPosition(unit.gridX, unit.gridZ);
+            if (unit.isOnBench)
+            {
+                gridManager.ClearBenchPosition(unit.benchSlotIndex);
+            }
+            else
+            {
+                gridManager.ClearUnitPosition(unit.gridX, unit.gridZ);
+            }
+
+            PlaceUnitOnBench(unit, targetBenchIndex);
+            return;
+        }
+
+        if (occupant == unit)
+        {
+            SnapBack();
+            return;
+        }
+
+        // Swap
+        if (unit.isOnBench)
+        {
+            int oldBenchIndex = unit.benchSlotIndex;
+            gridManager.ClearBenchPosition(oldBenchIndex);
+            gridManager.ClearBenchPosition(targetBenchIndex);
+
+            PlaceUnitOnBench(occupant, oldBenchIndex);
+            PlaceUnitOnBench(unit, targetBenchIndex);
         }
         else
         {
-            gridManager.ClearBenchPosition(unit.benchSlotIndex);
-        }
+            int oldX = unit.gridX;
+            int oldZ = unit.gridZ;
+            gridManager.ClearUnitPosition(oldX, oldZ);
+            gridManager.ClearBenchPosition(targetBenchIndex);
 
-        PlaceUnitOnBench(unit, targetBenchIndex);
+            PlaceUnitOnBoard(occupant, oldX, oldZ);
+            PlaceUnitOnBench(unit, targetBenchIndex);
+        }
     }
 
     void PlaceUnitOnBoard(Unit targetUnit, int x, int z)

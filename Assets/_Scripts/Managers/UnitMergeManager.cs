@@ -19,14 +19,18 @@ public class UnitMergeManager : MonoBehaviour
 
     void Start()
     {
-        gridManager = UnityEngine.Object.FindAnyObjectByType<BoardGridManager>();
+        gridManager = Object.FindAnyObjectByType<BoardGridManager>();
     }
 
+    /// <summary>
+    /// Checks all player units on the board and bench for 3-of-a-kind combinations and merges them.
+    /// </summary>
     public void CheckForMerges()
     {
-        if (gridManager == null) gridManager = UnityEngine.Object.FindAnyObjectByType<BoardGridManager>();
+        if (gridManager == null) gridManager = Object.FindAnyObjectByType<BoardGridManager>();
 
-        Unit[] allUnits = UnityEngine.Object.FindObjectsByType<Unit>();
+        // Query only active units in the hierarchy
+        Unit[] allUnits = Object.FindObjectsByType<Unit>(FindObjectsInactive.Exclude);
         List<Unit> playerUnits = new List<Unit>();
 
         foreach (var u in allUnits)
@@ -37,11 +41,12 @@ public class UnitMergeManager : MonoBehaviour
             }
         }
 
+        // Group units by UnitData name and current star level
         Dictionary<string, List<Unit>> groups = new Dictionary<string, List<Unit>>();
 
         foreach (var u in playerUnits)
         {
-            if (u.starLevel >= 3) continue;
+            if (u.starLevel >= 3) continue; // 3-Star is maximum
 
             string key = $"{u.data.unitName}_{u.starLevel}";
             if (!groups.ContainsKey(key))
@@ -58,19 +63,22 @@ public class UnitMergeManager : MonoBehaviour
             List<Unit> matches = kvp.Value;
             if (matches.Count >= 3)
             {
+                // Prioritize keeping a unit currently deployed on the board over bench
                 matches.Sort((a, b) => a.isOnBench.CompareTo(b.isOnBench));
 
                 Unit primaryUnit = matches[0];
                 Unit secondaryUnit1 = matches[1];
                 Unit secondaryUnit2 = matches[2];
 
+                // Instantly consume and clear the two extra copies
                 ConsumeUnit(secondaryUnit1);
                 ConsumeUnit(secondaryUnit2);
 
+                // Promote the surviving unit
                 primaryUnit.UpgradeStarLevel(primaryUnit.starLevel + 1);
 
                 mergedAny = true;
-                break;
+                break; // Rerun recursively to resolve cascade merges (e.g., three 2-stars -> one 3-star)
             }
         }
 
@@ -91,11 +99,16 @@ public class UnitMergeManager : MonoBehaviour
     {
         if (unit == null) return;
 
+        // 1. Immediately clear its tile/bench registration
         if (gridManager != null)
         {
             gridManager.UnregisterUnit(unit);
         }
 
+        // 2. Deactivate immediately so FindObjects & capacity checks exclude it on this frame
+        unit.gameObject.SetActive(false);
+
+        // 3. Destroy from memory
         Destroy(unit.gameObject);
     }
 }
