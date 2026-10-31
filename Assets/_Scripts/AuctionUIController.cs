@@ -8,6 +8,7 @@ public class AuctionUIController : MonoBehaviour
     private VisualElement root;
 
     private VisualElement auctionRoot;
+    private VisualElement prizeCard;
     private VisualElement biddingControls;
     private VisualElement revealSection;
 
@@ -23,8 +24,18 @@ public class AuctionUIController : MonoBehaviour
     private Button bidPlus5Btn;
     private Button lockBidBtn;
 
+    // Auction Inspection Modal
+    private VisualElement inspectModal;
+    private Label inspectTitle;
+    private Label inspectSubtitle;
+    private Label inspectHp;
+    private Label inspectAd;
+    private Label inspectExtra;
+    private Button inspectCloseBtn;
+
     private int localBid = 0;
     private bool isLocked = false;
+    private UnitData currentPrizeUnit;
 
     void Awake()
     {
@@ -79,6 +90,7 @@ public class AuctionUIController : MonoBehaviour
         root = rootElement;
 
         auctionRoot = root.Q<VisualElement>("auction-root");
+        prizeCard = root.Q<VisualElement>("prize-card");
         biddingControls = root.Q<VisualElement>("bidding-controls");
         revealSection = root.Q<VisualElement>("reveal-section");
 
@@ -94,23 +106,82 @@ public class AuctionUIController : MonoBehaviour
         bidPlus5Btn = root.Q<Button>("bid-plus5-btn");
         lockBidBtn = root.Q<Button>("lock-bid-btn");
 
+        // Inspection Modal Query
+        inspectModal = root.Q<VisualElement>("auction-inspect-modal");
+        inspectTitle = root.Q<Label>("auction-inspect-title");
+        inspectSubtitle = root.Q<Label>("auction-inspect-subtitle");
+        inspectHp = root.Q<Label>("auction-inspect-hp");
+        inspectAd = root.Q<Label>("auction-inspect-ad");
+        inspectExtra = root.Q<Label>("auction-inspect-extra");
+        inspectCloseBtn = root.Q<Button>("auction-inspect-close-btn");
+
         if (bidMinusBtn != null) bidMinusBtn.clicked += () => ModifyBid(-1);
         if (bidPlusBtn != null) bidPlusBtn.clicked += () => ModifyBid(1);
         if (bidPlus5Btn != null) bidPlus5Btn.clicked += () => ModifyBid(5);
         if (lockBidBtn != null) lockBidBtn.clicked += LockBid;
 
-        // Hide auction on initial load
+        if (inspectCloseBtn != null)
+        {
+            inspectCloseBtn.clicked += CloseInspection;
+        }
+
+        // Left-Click or Right-Click on the prize card opens inspection modal
+        if (prizeCard != null)
+        {
+            prizeCard.RegisterCallback<PointerDownEvent>(evt =>
+            {
+                ShowInspection();
+                evt.StopPropagation();
+            });
+        }
+
+        // Clicking outside the modal on the background closes it
+        if (auctionRoot != null)
+        {
+            auctionRoot.RegisterCallback<PointerDownEvent>(evt =>
+            {
+                if (inspectModal != null && inspectModal.style.display == DisplayStyle.Flex)
+                {
+                    CloseInspection();
+                }
+            });
+        }
+
         if (auctionRoot != null) auctionRoot.style.display = DisplayStyle.None;
+        if (inspectModal != null) inspectModal.style.display = DisplayStyle.None;
+    }
+
+    private void ShowInspection()
+    {
+        if (inspectModal == null || currentPrizeUnit == null) return;
+
+        if (inspectTitle != null) inspectTitle.text = currentPrizeUnit.unitName;
+        if (inspectSubtitle != null) inspectSubtitle.text = $"★ • {currentPrizeUnit.archetype} ({currentPrizeUnit.goldCost}g Tier)";
+        if (inspectHp != null) inspectHp.text = $"Base HP: {currentPrizeUnit.maxHealth}";
+        if (inspectAd != null) inspectAd.text = $"Base Attack: {currentPrizeUnit.attackDamage}";
+        if (inspectExtra != null) inspectExtra.text = $"Range: {currentPrizeUnit.attackRange:F1}  |  Speed: {currentPrizeUnit.moveSpeed:F1}";
+
+        inspectModal.style.display = DisplayStyle.Flex;
+    }
+
+    private void CloseInspection()
+    {
+        if (inspectModal != null)
+        {
+            inspectModal.style.display = DisplayStyle.None;
+        }
     }
 
     private void HandleAuctionStarted(UnitData prize, float duration)
     {
         isLocked = false;
         localBid = 0;
+        currentPrizeUnit = prize;
 
         if (auctionRoot != null) auctionRoot.style.display = DisplayStyle.Flex;
         if (biddingControls != null) biddingControls.style.display = DisplayStyle.Flex;
         if (revealSection != null) revealSection.style.display = DisplayStyle.None;
+        if (inspectModal != null) inspectModal.style.display = DisplayStyle.None;
 
         if (prizeNameLabel != null) prizeNameLabel.text = prize.unitName;
         if (prizeArchetypeLabel != null) prizeArchetypeLabel.text = $"{prize.archetype} | Tier {prize.goldCost}";
@@ -160,6 +231,8 @@ public class AuctionUIController : MonoBehaviour
 
     private void HandleAuctionEnded(bool playerWon, string winnerName, int pBid, int aiBid)
     {
+        CloseInspection();
+
         if (biddingControls != null) biddingControls.style.display = DisplayStyle.None;
         if (revealSection != null) revealSection.style.display = DisplayStyle.Flex;
 

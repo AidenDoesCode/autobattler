@@ -1,9 +1,13 @@
 using UnityEngine;
 using UnityEngine.UIElements;
+using UnityEngine.InputSystem;
+using System.Collections.Generic;
 
 [RequireComponent(typeof(PanelRenderer))]
 public class ShopUIController : MonoBehaviour
 {
+    public static ShopUIController Instance { get; private set; }
+
     private PanelRenderer panelRenderer;
     private VisualElement root;
 
@@ -26,6 +30,25 @@ public class ShopUIController : MonoBehaviour
     private Label supportCountLabel;
     private bool isSynergyCollapsed = false;
 
+    // Item Tray UI Elements
+    private VisualElement[] itemSlotElements;
+    private VisualElement dragGhost;
+    private Label ghostLabel;
+
+    // Inspection Card Elements
+    private VisualElement inspectionModal;
+    private Label inspectTitle;
+    private Label inspectSubtitle;
+    private Label inspectStatHp;
+    private Label inspectStatAd;
+    private Label inspectStatExtra;
+    private Label inspectDescLabel;
+    private VisualElement inspectItemsBox;
+    private Label inspectItemsHeader;
+    private VisualElement inspectItemsList;
+    private Button inspectCloseBtn;
+
+    // Shop Card Elements
     private VisualElement[] cardSlots;
     private Label[] nameLabels;
     private Label[] costLabels;
@@ -35,12 +58,19 @@ public class ShopUIController : MonoBehaviour
 
     void Awake()
     {
+        if (Instance != null && Instance != this)
+        {
+            Destroy(gameObject);
+            return;
+        }
+        Instance = this;
+
         panelRenderer = GetComponent<PanelRenderer>();
     }
 
     void Start()
     {
-        gridManager = UnityEngine.Object.FindAnyObjectByType<BoardGridManager>();
+        gridManager = Object.FindAnyObjectByType<BoardGridManager>();
         SubscribeEvents();
 
         if (EconomyManager.Instance != null)
@@ -55,6 +85,7 @@ public class ShopUIController : MonoBehaviour
         }
 
         UpdateSynergyUI();
+        UpdateItemTrayUI();
     }
 
     void OnEnable()
@@ -105,6 +136,12 @@ public class ShopUIController : MonoBehaviour
             SynergyManager.Instance.OnSynergiesUpdated -= UpdateSynergyUI;
             SynergyManager.Instance.OnSynergiesUpdated += UpdateSynergyUI;
         }
+
+        if (ItemInventoryManager.Instance != null)
+        {
+            ItemInventoryManager.Instance.OnInventoryChanged -= UpdateItemTrayUI;
+            ItemInventoryManager.Instance.OnInventoryChanged += UpdateItemTrayUI;
+        }
     }
 
     private void UnsubscribeEvents()
@@ -126,6 +163,11 @@ public class ShopUIController : MonoBehaviour
         {
             SynergyManager.Instance.OnSynergiesUpdated -= UpdateSynergyUI;
         }
+
+        if (ItemInventoryManager.Instance != null)
+        {
+            ItemInventoryManager.Instance.OnInventoryChanged -= UpdateItemTrayUI;
+        }
     }
 
     void Update()
@@ -136,6 +178,33 @@ public class ShopUIController : MonoBehaviour
             int max = gridManager.maxBoardUnits;
             boardCapLabel.text = $"Units: {current} / {max}";
             boardCapLabel.style.color = current > max ? new Color(1f, 0.3f, 0.3f) : Color.white;
+        }
+
+        // Direct per-frame cursor tracking mapped precisely to panel space
+        if (dragGhost != null && dragGhost.style.display == DisplayStyle.Flex && Mouse.current != null && root != null && root.panel != null)
+        {
+            Vector2 mouseScreenPos = Mouse.current.position.ReadValue();
+            Vector2 screenCoords = new Vector2(mouseScreenPos.x, Screen.height - mouseScreenPos.y);
+            Vector2 panelPos = RuntimePanelUtils.ScreenToPanel(root.panel, screenCoords);
+
+            dragGhost.style.left = panelPos.x;
+            dragGhost.style.top = panelPos.y;
+        }
+
+        // Right-click empty backdrop / ground closes inspection card
+        if (Mouse.current != null && Mouse.current.rightButton.wasPressedThisFrame && !ItemInventoryManager.Instance.IsDraggingItem)
+        {
+            if (inspectionModal != null && inspectionModal.style.display == DisplayStyle.Flex)
+            {
+                Vector2 mouseScreenPos = Mouse.current.position.ReadValue();
+                Vector2 screenCoords = new Vector2(mouseScreenPos.x, Screen.height - mouseScreenPos.y);
+                Vector2 panelPos = RuntimePanelUtils.ScreenToPanel(root.panel, screenCoords);
+
+                if (!inspectionModal.worldBound.Contains(panelPos))
+                {
+                    CloseInspection();
+                }
+            }
         }
     }
 
@@ -153,7 +222,30 @@ public class ShopUIController : MonoBehaviour
         buyXpButton = root.Q<Button>("buy-xp-btn");
         lockShopButton = root.Q<Button>("lock-shop-btn");
 
-        // Synergy Elements Query
+        // Drag Ghost Visual
+        dragGhost = root.Q<VisualElement>("dragged-item-ghost");
+        ghostLabel = root.Q<Label>("ghost-label");
+
+        // Inspection Modal Query
+        inspectionModal = root.Q<VisualElement>("inspection-modal");
+        inspectTitle = root.Q<Label>("inspect-title");
+        inspectSubtitle = root.Q<Label>("inspect-subtitle");
+        inspectStatHp = root.Q<Label>("inspect-stat-hp");
+        inspectStatAd = root.Q<Label>("inspect-stat-ad");
+        inspectStatExtra = root.Q<Label>("inspect-stat-extra");
+        inspectDescLabel = root.Q<Label>("inspect-desc-label");
+        inspectItemsBox = root.Q<VisualElement>("inspect-items-box");
+        inspectItemsHeader = root.Q<Label>("inspect-items-header");
+        inspectItemsList = root.Q<VisualElement>("inspect-items-list");
+        inspectCloseBtn = root.Q<Button>("inspect-close-btn");
+
+        if (inspectCloseBtn != null)
+        {
+            inspectCloseBtn.clicked -= CloseInspection;
+            inspectCloseBtn.clicked += CloseInspection;
+        }
+
+        // Synergy Elements
         synergyBody = root.Q<VisualElement>("synergy-body");
         toggleSynergyBtn = root.Q<Button>("toggle-synergy-btn");
         meleeBox = root.Q<VisualElement>("melee-trait-box");
@@ -187,6 +279,81 @@ public class ShopUIController : MonoBehaviour
             lockShopButton.clicked += OnLockShopClicked;
         }
 
+        // Item Tray Elements (8 slots with right-click inspection and left-click drag)
+        itemSlotElements = new VisualElement[8];
+        for (int i = 0; i < 8; i++)
+        {
+            int slotIndex = i;
+            VisualElement slot = root.Q<VisualElement>($"item-slot-{i}");
+            itemSlotElements[i] = slot;
+
+            if (slot != null)
+            {
+                slot.RegisterCallback<PointerDownEvent>(evt =>
+                {
+                    // Right-Click: Inspect Item
+                    if (evt.button == 1)
+                    {
+                        if (ItemInventoryManager.Instance != null && ItemInventoryManager.Instance.inventorySlots[slotIndex] != null)
+                        {
+                            InspectItem(ItemInventoryManager.Instance.inventorySlots[slotIndex]);
+                            evt.StopPropagation();
+                            return;
+                        }
+                    }
+
+                    // Left-Click: Start Drag
+                    if (evt.button == 0 && ItemInventoryManager.Instance != null && ItemInventoryManager.Instance.inventorySlots[slotIndex] != null)
+                    {
+                        ItemInventoryManager.Instance.StartDraggingItem(slotIndex);
+                        slot.CapturePointer(evt.pointerId);
+
+                        ItemData it = ItemInventoryManager.Instance.inventorySlots[slotIndex];
+                        if (dragGhost != null && ghostLabel != null && it != null && root != null && root.panel != null)
+                        {
+                            ghostLabel.text = it.itemCode ?? it.itemName.Substring(0, Mathf.Min(2, it.itemName.Length));
+
+                            Color ghostBorderColor = it.isCompletedItem ? new Color(1f, 0.84f, 0f) : new Color(0.3f, 0.6f, 0.9f);
+                            SetBorderColor(dragGhost, ghostBorderColor);
+
+                            if (Mouse.current != null)
+                            {
+                                Vector2 mouseScreenPos = Mouse.current.position.ReadValue();
+                                Vector2 screenCoords = new Vector2(mouseScreenPos.x, Screen.height - mouseScreenPos.y);
+                                Vector2 panelPos = RuntimePanelUtils.ScreenToPanel(root.panel, screenCoords);
+                                dragGhost.style.left = panelPos.x;
+                                dragGhost.style.top = panelPos.y;
+                            }
+
+                            dragGhost.style.display = DisplayStyle.Flex;
+                        }
+
+                        slot.style.opacity = 0.35f;
+                        evt.StopPropagation();
+                    }
+                });
+
+                slot.RegisterCallback<PointerUpEvent>(evt =>
+                {
+                    if (slot.HasPointerCapture(evt.pointerId))
+                    {
+                        slot.ReleasePointer(evt.pointerId);
+                    }
+
+                    if (dragGhost != null) dragGhost.style.display = DisplayStyle.None;
+                    slot.style.opacity = 1f;
+
+                    if (ItemInventoryManager.Instance != null && ItemInventoryManager.Instance.IsDraggingItem)
+                    {
+                        Vector2 screenPos = Mouse.current != null ? Mouse.current.position.ReadValue() : (Vector2)evt.position;
+                        ItemInventoryManager.Instance.FinishItemDrag(screenPos);
+                        evt.StopPropagation();
+                    }
+                });
+            }
+        }
+
+        // Shop Card Elements
         int size = ShopManager.Instance != null ? ShopManager.Instance.shopSize : 5;
         cardSlots = new VisualElement[size];
         nameLabels = new Label[size];
@@ -210,6 +377,20 @@ public class ShopUIController : MonoBehaviour
                 {
                     buyBtn.clicked += () => OnBuyCardClicked(slotIndex);
                 }
+
+                card.RegisterCallback<PointerDownEvent>(evt =>
+                {
+                    if (evt.button == 1) // Right Click
+                    {
+                        if (ShopManager.Instance != null && ShopManager.Instance.currentShopUnits != null &&
+                            slotIndex < ShopManager.Instance.currentShopUnits.Length &&
+                            ShopManager.Instance.currentShopUnits[slotIndex] != null)
+                        {
+                            InspectUnitData(ShopManager.Instance.currentShopUnits[slotIndex]);
+                            evt.StopPropagation();
+                        }
+                    }
+                });
             }
         }
 
@@ -232,6 +413,231 @@ public class ShopUIController : MonoBehaviour
         }
 
         UpdateSynergyUI();
+        UpdateItemTrayUI();
+    }
+
+    // --- INSPECTION CARD LOGIC ---
+
+    public void InspectUnit(Unit unit)
+    {
+        if (inspectionModal == null || unit == null || unit.data == null) return;
+
+        SetBorderColor(inspectionModal, new Color(0.95f, 0.77f, 0.06f));
+        inspectTitle.text = unit.data.unitName;
+
+        string stars = unit.starLevel == 3 ? "★★★" : (unit.starLevel == 2 ? "★★" : "★");
+        inspectSubtitle.text = $"{stars} • {unit.data.archetype} ({unit.data.goldCost}g)";
+        inspectSubtitle.style.color = unit.starLevel >= 3 ? new Color(1f, 0.84f, 0f) : new Color(0.85f, 0.90f, 0.95f);
+
+        inspectStatHp.text = $"HP: {unit.currentHealth} / {unit.GetEffectiveMaxHealth()}";
+        inspectStatAd.text = $"Attack Damage: {unit.GetEffectiveAttackDamage()}";
+
+        float bonusAS = unit.GetItemBonusAttackSpeed() * 100f;
+        int flatDR = unit.GetItemFlatDamageReduction();
+        inspectStatExtra.text = $"Bonus AS: +{bonusAS:F0}%   |   DR: -{flatDR}";
+
+        inspectDescLabel.style.display = DisplayStyle.None;
+
+        // Render equipped items
+        inspectItemsBox.style.display = DisplayStyle.Flex;
+        inspectItemsHeader.text = $"EQUIPPED ITEMS ({unit.equippedItems.Count}/{Unit.MaxItems})";
+        inspectItemsList.Clear();
+
+        if (unit.equippedItems.Count == 0)
+        {
+            Label noneLabel = new Label("No items equipped");
+            noneLabel.style.fontSize = 13;
+            noneLabel.style.color = new Color(0.6f, 0.65f, 0.7f);
+            noneLabel.style.unityFontStyleAndWeight = FontStyle.Italic;
+            noneLabel.style.marginTop = 3;
+            noneLabel.style.whiteSpace = WhiteSpace.Normal;
+            inspectItemsList.Add(noneLabel);
+        }
+        else
+        {
+            foreach (var item in unit.equippedItems)
+            {
+                if (item == null) continue;
+
+                VisualElement itemRow = new VisualElement();
+                itemRow.style.flexDirection = FlexDirection.Row;
+                itemRow.style.justifyContent = Justify.SpaceBetween;
+                itemRow.style.alignItems = Align.Center;
+                itemRow.style.flexWrap = Wrap.Wrap;
+                itemRow.style.marginBottom = 5;
+                itemRow.style.paddingLeft = 8;
+                itemRow.style.paddingRight = 8;
+                itemRow.style.paddingTop = 5;
+                itemRow.style.paddingBottom = 5;
+                itemRow.style.backgroundColor = new Color(0.12f, 0.14f, 0.18f);
+                SetBorderRadius(itemRow, 4);
+
+                Label nameLbl = new Label(item.itemName);
+                nameLbl.style.fontSize = 13;
+                nameLbl.style.unityFontStyleAndWeight = FontStyle.Bold;
+                nameLbl.style.color = item.isCompletedItem ? new Color(1f, 0.84f, 0f) : Color.white;
+                nameLbl.style.whiteSpace = WhiteSpace.Normal;
+                nameLbl.style.marginRight = 6;
+                itemRow.Add(nameLbl);
+
+                string buffText = "";
+                if (item.bonusAttackDamage > 0) buffText += $"+{item.bonusAttackDamage} AD ";
+                if (item.bonusHealth > 0) buffText += $"+{item.bonusHealth} HP ";
+                if (item.bonusAttackSpeed > 0f) buffText += $"+{item.bonusAttackSpeed * 100f:F0}% AS ";
+                if (item.flatDamageReduction > 0) buffText += $"-{item.flatDamageReduction} DR";
+
+                Label buffLbl = new Label(buffText.Trim());
+                buffLbl.style.fontSize = 12;
+                buffLbl.style.unityFontStyleAndWeight = FontStyle.Bold;
+                buffLbl.style.color = new Color(0.3f, 0.85f, 0.95f);
+                buffLbl.style.whiteSpace = WhiteSpace.Normal;
+                itemRow.Add(buffLbl);
+
+                inspectItemsList.Add(itemRow);
+            }
+        }
+
+        inspectionModal.style.display = DisplayStyle.Flex;
+    }
+
+    public void InspectUnitData(UnitData data, ItemData attachedItem = null)
+    {
+        if (inspectionModal == null || data == null) return;
+
+        SetBorderColor(inspectionModal, new Color(0.95f, 0.77f, 0.06f));
+        inspectTitle.text = data.unitName;
+        inspectSubtitle.text = $"★ • {data.archetype} ({data.goldCost}g Cost)";
+        inspectSubtitle.style.color = new Color(0.85f, 0.90f, 0.95f);
+
+        inspectStatHp.text = $"Base HP: {data.maxHealth}";
+        inspectStatAd.text = $"Base Attack: {data.attackDamage}";
+        inspectStatExtra.text = $"Range: {data.attackRange:F1}   |   Speed: {data.moveSpeed:F1}";
+
+        inspectDescLabel.style.display = DisplayStyle.None;
+
+        inspectItemsBox.style.display = DisplayStyle.Flex;
+        inspectItemsList.Clear();
+
+        if (attachedItem != null)
+        {
+            inspectItemsHeader.text = "ATTACHED ITEM";
+            VisualElement itemRow = new VisualElement();
+            itemRow.style.flexDirection = FlexDirection.Row;
+            itemRow.style.justifyContent = Justify.SpaceBetween;
+            itemRow.style.alignItems = Align.Center;
+            itemRow.style.flexWrap = Wrap.Wrap;
+            itemRow.style.paddingLeft = 8;
+            itemRow.style.paddingRight = 8;
+            itemRow.style.paddingTop = 5;
+            itemRow.style.paddingBottom = 5;
+            itemRow.style.backgroundColor = new Color(0.12f, 0.14f, 0.18f);
+            SetBorderRadius(itemRow, 4);
+
+            Label nameLbl = new Label(attachedItem.itemName);
+            nameLbl.style.fontSize = 13;
+            nameLbl.style.unityFontStyleAndWeight = FontStyle.Bold;
+            nameLbl.style.color = attachedItem.isCompletedItem ? new Color(1f, 0.84f, 0f) : Color.white;
+            nameLbl.style.whiteSpace = WhiteSpace.Normal;
+            nameLbl.style.marginRight = 6;
+            itemRow.Add(nameLbl);
+
+            string buffText = "";
+            if (attachedItem.bonusAttackDamage > 0) buffText += $"+{attachedItem.bonusAttackDamage} AD ";
+            if (attachedItem.bonusHealth > 0) buffText += $"+{attachedItem.bonusHealth} HP ";
+            if (attachedItem.bonusAttackSpeed > 0f) buffText += $"+{attachedItem.bonusAttackSpeed * 100f:F0}% AS ";
+            if (attachedItem.flatDamageReduction > 0) buffText += $"-{attachedItem.flatDamageReduction} DR";
+
+            Label buffLbl = new Label(buffText.Trim());
+            buffLbl.style.fontSize = 12;
+            buffLbl.style.unityFontStyleAndWeight = FontStyle.Bold;
+            buffLbl.style.color = new Color(0.3f, 0.85f, 0.95f);
+            buffLbl.style.whiteSpace = WhiteSpace.Normal;
+            itemRow.Add(buffLbl);
+
+            inspectItemsList.Add(itemRow);
+        }
+        else
+        {
+            inspectItemsHeader.text = "SHOP OFFER";
+            Label noneLabel = new Label("Equip items once purchased");
+            noneLabel.style.fontSize = 13;
+            noneLabel.style.color = new Color(0.6f, 0.65f, 0.7f);
+            noneLabel.style.unityFontStyleAndWeight = FontStyle.Italic;
+            noneLabel.style.marginTop = 3;
+            noneLabel.style.whiteSpace = WhiteSpace.Normal;
+            inspectItemsList.Add(noneLabel);
+        }
+
+        inspectionModal.style.display = DisplayStyle.Flex;
+    }
+
+    public void InspectItem(ItemData item)
+    {
+        if (inspectionModal == null || item == null) return;
+
+        Color itemBorderColor = item.isCompletedItem ? new Color(1f, 0.84f, 0f) : new Color(0.3f, 0.6f, 0.9f);
+        SetBorderColor(inspectionModal, itemBorderColor);
+
+        inspectTitle.text = item.itemName;
+        inspectSubtitle.text = item.isCompletedItem ? "Completed Combined Item" : $"{item.componentType} Component";
+        inspectSubtitle.style.color = item.isCompletedItem ? new Color(1f, 0.84f, 0f) : new Color(0.3f, 0.6f, 0.9f);
+
+        inspectStatHp.text = item.bonusHealth > 0 ? $"+{item.bonusHealth} Max Health" : "";
+        inspectStatHp.style.display = item.bonusHealth > 0 ? DisplayStyle.Flex : DisplayStyle.None;
+        inspectStatHp.style.whiteSpace = WhiteSpace.Normal;
+
+        inspectStatAd.text = item.bonusAttackDamage > 0 ? $"+{item.bonusAttackDamage} Attack Damage" : "";
+        inspectStatAd.style.display = item.bonusAttackDamage > 0 ? DisplayStyle.Flex : DisplayStyle.None;
+        inspectStatAd.style.whiteSpace = WhiteSpace.Normal;
+
+        string extra = "";
+        if (item.bonusAttackSpeed > 0f) extra += $"+{item.bonusAttackSpeed * 100f:F0}% Attack Speed   ";
+        if (item.flatDamageReduction > 0) extra += $"-{item.flatDamageReduction} Damage Taken";
+        inspectStatExtra.text = extra.Trim();
+        inspectStatExtra.style.display = string.IsNullOrEmpty(extra) ? DisplayStyle.None : DisplayStyle.Flex;
+        inspectStatExtra.style.whiteSpace = WhiteSpace.Normal;
+
+        if (!string.IsNullOrEmpty(item.description))
+        {
+            inspectDescLabel.text = item.description;
+            inspectDescLabel.style.display = DisplayStyle.Flex;
+            inspectDescLabel.style.whiteSpace = WhiteSpace.Normal;
+        }
+        else
+        {
+            inspectDescLabel.style.display = DisplayStyle.None;
+        }
+
+        inspectItemsBox.style.display = DisplayStyle.None;
+        inspectionModal.style.display = DisplayStyle.Flex;
+    }
+
+    public void CloseInspection()
+    {
+        if (inspectionModal != null)
+        {
+            inspectionModal.style.display = DisplayStyle.None;
+        }
+    }
+
+    // --- UI Toolkit Style Helpers ---
+
+    private void SetBorderColor(VisualElement element, Color color)
+    {
+        if (element == null) return;
+        element.style.borderTopColor = color;
+        element.style.borderBottomColor = color;
+        element.style.borderLeftColor = color;
+        element.style.borderRightColor = color;
+    }
+
+    private void SetBorderRadius(VisualElement element, float radius)
+    {
+        if (element == null) return;
+        element.style.borderTopLeftRadius = radius;
+        element.style.borderTopRightRadius = radius;
+        element.style.borderBottomLeftRadius = radius;
+        element.style.borderBottomRightRadius = radius;
     }
 
     private void OnToggleSynergyClicked()
@@ -283,6 +689,39 @@ public class ShopUIController : MonoBehaviour
         }
     }
 
+    private void UpdateItemTrayUI()
+    {
+        if (ItemInventoryManager.Instance == null || itemSlotElements == null) return;
+
+        for (int i = 0; i < itemSlotElements.Length; i++)
+        {
+            VisualElement slot = itemSlotElements[i];
+            if (slot == null) continue;
+
+            slot.Clear();
+            slot.style.opacity = 1f;
+            ItemData it = ItemInventoryManager.Instance.inventorySlots[i];
+
+            if (it != null)
+            {
+                Label label = new Label(it.itemCode ?? it.itemName.Substring(0, Mathf.Min(2, it.itemName.Length)));
+                label.pickingMode = PickingMode.Ignore;
+                label.style.fontSize = 11;
+                label.style.unityFontStyleAndWeight = FontStyle.Bold;
+                label.style.color = it.isCompletedItem ? new Color(1f, 0.84f, 0f) : Color.white;
+                slot.Add(label);
+
+                Color borderCol = it.isCompletedItem ? new Color(1f, 0.84f, 0f) : new Color(0.3f, 0.6f, 0.9f);
+                SetBorderColor(slot, borderCol);
+            }
+            else
+            {
+                Color defaultBorder = new Color(0.3f, 0.35f, 0.4f);
+                SetBorderColor(slot, defaultBorder);
+            }
+        }
+    }
+
     private void OnRerollClicked()
     {
         if (ShopManager.Instance != null)
@@ -315,20 +754,14 @@ public class ShopUIController : MonoBehaviour
         {
             lockShopButton.text = "Locked";
             lockShopButton.style.backgroundColor = new StyleColor(new Color(0.85f, 0.65f, 0.13f));
-            lockShopButton.style.borderTopColor = new StyleColor(new Color(1f, 0.84f, 0f));
-            lockShopButton.style.borderBottomColor = new StyleColor(new Color(1f, 0.84f, 0f));
-            lockShopButton.style.borderLeftColor = new StyleColor(new Color(1f, 0.84f, 0f));
-            lockShopButton.style.borderRightColor = new StyleColor(new Color(1f, 0.84f, 0f));
+            SetBorderColor(lockShopButton, new Color(1f, 0.84f, 0f));
             lockShopButton.style.color = new StyleColor(Color.black);
         }
         else
         {
             lockShopButton.text = "Lock";
             lockShopButton.style.backgroundColor = new StyleColor(new Color(0.18f, 0.20f, 0.24f));
-            lockShopButton.style.borderTopColor = new StyleColor(new Color(0.27f, 0.31f, 0.37f));
-            lockShopButton.style.borderBottomColor = new StyleColor(new Color(0.27f, 0.31f, 0.37f));
-            lockShopButton.style.borderLeftColor = new StyleColor(new Color(0.27f, 0.31f, 0.37f));
-            lockShopButton.style.borderRightColor = new StyleColor(new Color(0.27f, 0.31f, 0.37f));
+            SetBorderColor(lockShopButton, new Color(0.27f, 0.31f, 0.37f));
             lockShopButton.style.color = new StyleColor(new Color(0.93f, 0.94f, 0.95f));
         }
     }

@@ -19,9 +19,13 @@ public class Unit : MonoBehaviour
     public bool isPlayerTeam = true;
 
     [Header("Star Level Progression")]
-    public int starLevel = 1; // 1, 2, or 3 Stars
+    public int starLevel = 1;
     public int scaledMaxHealth;
     public int scaledAttackDamage;
+
+    [Header("Equipped Items (Max 3)")]
+    public List<ItemData> equippedItems = new List<ItemData>();
+    public const int MaxItems = 3;
 
     [Header("Visual Components")]
     public UnitHealthBarUI healthBar;
@@ -45,7 +49,6 @@ public class Unit : MonoBehaviour
             healthBar = GetComponentInChildren<UnitHealthBarUI>();
         }
 
-        // Cache the prefab's original natural scale so we don't blow it up
         basePrefabScale = transform.localScale;
 
         unitRenderer = GetComponentInChildren<Renderer>();
@@ -63,7 +66,6 @@ public class Unit : MonoBehaviour
 
     void OnDisable()
     {
-        // Stop any running flinch and restore original color immediately
         if (flinchRoutine != null)
         {
             StopCoroutine(flinchRoutine);
@@ -78,7 +80,7 @@ public class Unit : MonoBehaviour
         {
             if (scaledMaxHealth <= 0) scaledMaxHealth = data.maxHealth;
             if (scaledAttackDamage <= 0) scaledAttackDamage = data.attackDamage;
-            currentHealth = scaledMaxHealth;
+            currentHealth = GetEffectiveMaxHealth();
         }
     }
 
@@ -104,20 +106,15 @@ public class Unit : MonoBehaviour
         benchSlotIndex = benchIndex;
     }
 
-    /// <summary>
-    /// Upgrades the unit to the next star level, scaling its combat attributes and mesh size relative to its base prefab scale.
-    /// </summary>
     public void UpgradeStarLevel(int newStarLevel)
     {
         starLevel = newStarLevel;
 
-        // Multiply stats: 1.8x for 2-Star, 3.2x for 3-Star
         float statMultiplier = (starLevel == 2) ? 1.8f : 3.2f;
         scaledMaxHealth = Mathf.RoundToInt(data.maxHealth * statMultiplier);
         scaledAttackDamage = Mathf.RoundToInt(data.attackDamage * statMultiplier);
-        currentHealth = scaledMaxHealth;
+        currentHealth = GetEffectiveMaxHealth();
 
-        // Subtle scale bump: +8% for 2-Star, +16% for 3-Star relative to original prefab scale
         float visualScaleMultiplier = 1f + (starLevel - 1) * 0.08f;
         transform.localScale = basePrefabScale * visualScaleMultiplier;
 
@@ -126,14 +123,87 @@ public class Unit : MonoBehaviour
         UpdateHealthUI();
     }
 
+    // --- Item Stat Bonuses ---
+
+    public int GetItemBonusHealth()
+    {
+        int sum = 0;
+        foreach (var it in equippedItems) if (it != null) sum += it.bonusHealth;
+        return sum;
+    }
+
+    public int GetItemBonusDamage()
+    {
+        int sum = 0;
+        foreach (var it in equippedItems) if (it != null) sum += it.bonusAttackDamage;
+        return sum;
+    }
+
+    public int GetItemFlatDamageReduction()
+    {
+        int sum = 0;
+        foreach (var it in equippedItems) if (it != null) sum += it.flatDamageReduction;
+        return sum;
+    }
+
+    public float GetItemBonusAttackSpeed()
+    {
+        float sum = 0f;
+        foreach (var it in equippedItems) if (it != null) sum += it.bonusAttackSpeed;
+        return sum;
+    }
+
     public int GetEffectiveAttackDamage()
     {
-        return scaledAttackDamage > 0 ? scaledAttackDamage : (data != null ? data.attackDamage : 10);
+        int baseVal = scaledAttackDamage > 0 ? scaledAttackDamage : (data != null ? data.attackDamage : 10);
+        return baseVal + GetItemBonusDamage();
     }
 
     public int GetEffectiveMaxHealth()
     {
-        return scaledMaxHealth > 0 ? scaledMaxHealth : (data != null ? data.maxHealth : 100);
+        int baseVal = scaledMaxHealth > 0 ? scaledMaxHealth : (data != null ? data.maxHealth : 100);
+        return baseVal + GetItemBonusHealth();
+    }
+
+    /// <summary>
+    /// Attempts to equip or fuse an item onto this unit.
+    /// </summary>
+    public bool TryEquipOrFuseItem(ItemData newItem, ItemDatabase db)
+    {
+        if (newItem == null) return false;
+
+        // 1. Check if an uncompleted component can fuse with newItem
+        if (!newItem.isCompletedItem && db != null)
+        {
+            for (int i = 0; i < equippedItems.Count; i++)
+            {
+                if (!equippedItems[i].isCompletedItem)
+                {
+                    ItemData combined = db.CombineItems(equippedItems[i], newItem);
+                    if (combined != null)
+                    {
+                        Debug.Log($"<color=cyan>[Item Fuse]</color> {equippedItems[i].itemName} + {newItem.itemName} -> <b>{combined.itemName}</b> on {data.unitName}!");
+                        equippedItems[i] = combined;
+                        currentHealth += combined.bonusHealth;
+                        UpdateHealthUI();
+                        return true;
+                    }
+                }
+            }
+        }
+
+        // 2. Otherwise, equip into an empty slot if under capacity
+        if (equippedItems.Count < MaxItems)
+        {
+            equippedItems.Add(newItem);
+            currentHealth += newItem.bonusHealth;
+            Debug.Log($"<color=yellow>[Equip]</color> Equipped {newItem.itemName} onto {data.unitName} ({equippedItems.Count}/{MaxItems})");
+            UpdateHealthUI();
+            return true;
+        }
+
+        Debug.LogWarning($"[Items] {data.unitName} already has max items ({MaxItems})!");
+        return false;
     }
 
     public void PlayAttackAnimation(Vector3 targetPosition)
@@ -176,7 +246,6 @@ public class Unit : MonoBehaviour
 
         SpawnPopup(damage, isHeal: false);
 
-        // Only flinch if the unit is still alive; if dead, reset immediately
         if (currentHealth > 0)
         {
             if (flinchRoutine != null) StopCoroutine(flinchRoutine);
@@ -229,7 +298,8 @@ public class Unit : MonoBehaviour
         {
             healthBar.SetTeam(isPlayerTeam);
             healthBar.UpdateHealth(currentHealth, GetEffectiveMaxHealth());
-            healthBar.UpdateStarLevel(starLevel); // Updates overhead star badge
+            healthBar.UpdateStarLevel(starLevel);
+            healthBar.UpdateEquippedItems(equippedItems);
         }
     }
 
@@ -238,7 +308,6 @@ public class Unit : MonoBehaviour
         gameObject.SetActive(true);
         isMoving = false;
 
-        // Ensure clean color and health reset
         RestoreOriginalColor();
         currentHealth = GetEffectiveMaxHealth();
 

@@ -1,6 +1,7 @@
 using UnityEngine;
 using UnityEngine.UIElements;
 using System.Collections;
+using System.Collections.Generic;
 
 [RequireComponent(typeof(PanelRenderer))]
 public class UnitHealthBarUI : MonoBehaviour
@@ -10,12 +11,18 @@ public class UnitHealthBarUI : MonoBehaviour
     private VisualElement barFill;
     private VisualElement popupContainer;
     private Label starBadgeLabel;
+    
+    // Overhead Item Elements
+    private VisualElement itemsContainer;
+    private VisualElement[] overheadItemSlots;
+
     private Camera mainCamera;
     private bool uiReady = false;
 
     private float cachedPercentage = 100f;
     private bool cachedIsPlayerTeam = true;
     private int cachedStarLevel = 1;
+    private List<ItemData> cachedItems = new List<ItemData>();
 
     [Header("Colors")]
     [SerializeField] private Color allyColor = new Color(0.2f, 0.8f, 0.2f);
@@ -58,12 +65,20 @@ public class UnitHealthBarUI : MonoBehaviour
         barFill = rootElement.Q<VisualElement>("bar-fill");
         popupContainer = rootElement.Q<VisualElement>("popup-container");
         starBadgeLabel = rootElement.Q<Label>("star-badge-label");
+        itemsContainer = rootElement.Q<VisualElement>("items-container");
+
+        overheadItemSlots = new VisualElement[3];
+        for (int i = 0; i < 3; i++)
+        {
+            overheadItemSlots[i] = rootElement.Q<VisualElement>($"overhead-item-{i}");
+        }
 
         if (barFill != null)
         {
             uiReady = true;
             ApplyBar();
             ApplyStarBadge();
+            ApplyItems();
         }
     }
 
@@ -91,6 +106,17 @@ public class UnitHealthBarUI : MonoBehaviour
     {
         cachedStarLevel = starLevel;
         if (uiReady) ApplyStarBadge();
+    }
+
+    public void UpdateEquippedItems(List<ItemData> items)
+    {
+        cachedItems.Clear();
+        if (items != null)
+        {
+            cachedItems.AddRange(items);
+        }
+
+        if (uiReady) ApplyItems();
     }
 
     private void ApplyBar()
@@ -122,20 +148,79 @@ public class UnitHealthBarUI : MonoBehaviour
             case 2:
                 starBadgeLabel.text = "★★";
                 starBadgeLabel.style.fontSize = 14;
-                starBadgeLabel.style.color = new StyleColor(new Color(0.85f, 0.90f, 0.95f)); // Silver / Platinum
+                starBadgeLabel.style.color = new StyleColor(new Color(0.85f, 0.90f, 0.95f)); // Silver
                 break;
 
             case 3:
                 starBadgeLabel.text = "★★★";
                 starBadgeLabel.style.fontSize = 16;
-                starBadgeLabel.style.color = new StyleColor(new Color(1f, 0.84f, 0.0f)); // Bright Gold
+                starBadgeLabel.style.color = new StyleColor(new Color(1f, 0.84f, 0.0f)); // Gold
                 break;
 
             default:
                 starBadgeLabel.text = "★";
                 starBadgeLabel.style.fontSize = 12;
-                starBadgeLabel.style.color = new StyleColor(new Color(0.75f, 0.75f, 0.75f)); // Bronze / Gray
+                starBadgeLabel.style.color = new StyleColor(new Color(0.75f, 0.75f, 0.75f));
                 break;
+        }
+    }
+
+    private void ApplyItems()
+    {
+        if (itemsContainer == null && root != null)
+        {
+            itemsContainer = root.Q<VisualElement>("items-container");
+        }
+
+        if (overheadItemSlots == null && root != null)
+        {
+            overheadItemSlots = new VisualElement[3];
+            for (int i = 0; i < 3; i++)
+            {
+                overheadItemSlots[i] = root.Q<VisualElement>($"overhead-item-{i}");
+            }
+        }
+
+        if (itemsContainer == null || overheadItemSlots == null) return;
+
+        if (cachedItems.Count == 0)
+        {
+            itemsContainer.style.display = DisplayStyle.None;
+            return;
+        }
+
+        itemsContainer.style.display = DisplayStyle.Flex;
+
+        for (int i = 0; i < 3; i++)
+        {
+            VisualElement slot = overheadItemSlots[i];
+            if (slot == null) continue;
+
+            slot.Clear();
+
+            if (i < cachedItems.Count && cachedItems[i] != null)
+            {
+                ItemData it = cachedItems[i];
+                slot.style.display = DisplayStyle.Flex;
+
+                Label codeLabel = new Label(it.itemCode ?? it.itemName.Substring(0, Mathf.Min(2, it.itemName.Length)));
+                codeLabel.pickingMode = PickingMode.Ignore;
+                codeLabel.style.fontSize = 8;
+                codeLabel.style.unityFontStyleAndWeight = FontStyle.Bold;
+                codeLabel.style.color = it.isCompletedItem ? new Color(1f, 0.84f, 0f) : Color.white;
+                codeLabel.style.unityTextAlign = TextAnchor.MiddleCenter;
+                slot.Add(codeLabel);
+
+                Color borderColor = it.isCompletedItem ? new Color(1f, 0.84f, 0f) : new Color(0.3f, 0.6f, 0.9f);
+                slot.style.borderTopColor = borderColor;
+                slot.style.borderBottomColor = borderColor;
+                slot.style.borderLeftColor = borderColor;
+                slot.style.borderRightColor = borderColor;
+            }
+            else
+            {
+                slot.style.display = DisplayStyle.None;
+            }
         }
     }
 

@@ -11,17 +11,14 @@ public class UnitDragHandler : MonoBehaviour
 
     private bool isDragging = false;
     private float dragYLevel;
+    private Vector2 clickStartPosition;
+    private const float DragThresholdPixels = 8f;
 
     // Track hovered location
     private bool hoverIsBench = false;
     private int hoverBoardX = -1;
     private int hoverBoardZ = -1;
     private int hoverBenchIndex = -1;
-    private bool isHoveringSellZone = false;
-
-    [Header("Sell Settings")]
-    [Tooltip("Z-distance threshold behind the bench where releasing sells the unit")]
-    public float sellZOffset = 1.2f;
 
     void Awake()
     {
@@ -32,33 +29,41 @@ public class UnitDragHandler : MonoBehaviour
     void Start()
     {
         mainCamera = Camera.main;
-        gridManager = UnityEngine.Object.FindAnyObjectByType<BoardGridManager>();
-        gameManager = UnityEngine.Object.FindAnyObjectByType<GameManager>();
+        gridManager = Object.FindAnyObjectByType<BoardGridManager>();
+        gameManager = Object.FindAnyObjectByType<GameManager>();
     }
 
     void Update()
     {
         if (Mouse.current == null) return;
         if (mainCamera == null) mainCamera = Camera.main;
-        if (gridManager == null) gridManager = UnityEngine.Object.FindAnyObjectByType<BoardGridManager>();
-        if (gameManager == null) gameManager = UnityEngine.Object.FindAnyObjectByType<GameManager>();
+        if (gridManager == null) gridManager = Object.FindAnyObjectByType<BoardGridManager>();
+        if (gameManager == null) gameManager = Object.FindAnyObjectByType<GameManager>();
 
-        // 1. Pick up unit
+        // 1. Right-Click on Unit to inspect directly, or on empty ground to close modal
+        if (Mouse.current.rightButton.wasPressedThisFrame)
+        {
+            Vector2 mousePos = Mouse.current.position.ReadValue();
+            Ray ray = mainCamera.ScreenPointToRay(mousePos);
+
+            if (unitCollider != null && unitCollider.Raycast(ray, out RaycastHit hit, 200f))
+            {
+                if (ShopUIController.Instance != null && unit != null)
+                {
+                    ShopUIController.Instance.InspectUnit(unit);
+                }
+            }
+        }
+
+        // 2. Left-Click Press
         if (Mouse.current.leftButton.wasPressedThisFrame)
         {
             TryStartDrag();
         }
 
-        // 2. Active drag & hotkey listener
+        // 3. Active Dragging
         if (isDragging)
         {
-            // Hotkey 'E': Sell while dragging
-            if (Keyboard.current != null && Keyboard.current.eKey.wasPressedThisFrame)
-            {
-                SellCurrentUnit();
-                return;
-            }
-
             Vector2 mousePos = Mouse.current.position.ReadValue();
             Ray ray = mainCamera.ScreenPointToRay(mousePos);
             Plane groundPlane = new Plane(Vector3.up, new Vector3(0, dragYLevel, 0));
@@ -71,7 +76,7 @@ public class UnitDragHandler : MonoBehaviour
                 UpdateHoverTile();
             }
 
-            // 3. Drop / Release
+            // 4. Drop / Release or Quick-Click Inspect
             if (Mouse.current.leftButton.wasReleasedThisFrame || !Mouse.current.leftButton.isPressed)
             {
                 isDragging = false;
@@ -80,9 +85,16 @@ public class UnitDragHandler : MonoBehaviour
                     gridManager.ResetAllTileColors(Color.white);
                 }
 
-                if (isHoveringSellZone)
+                float dragDistance = Vector2.Distance(mousePos, clickStartPosition);
+
+                // If clicked without dragging significantly, inspect the unit
+                if (dragDistance < DragThresholdPixels)
                 {
-                    SellCurrentUnit();
+                    SnapBack();
+                    if (ShopUIController.Instance != null && unit != null)
+                    {
+                        ShopUIController.Instance.InspectUnit(unit);
+                    }
                 }
                 else
                 {
@@ -94,7 +106,6 @@ public class UnitDragHandler : MonoBehaviour
 
     private void TryStartDrag()
     {
-        // Only allow dragging in Planning phase and for living player units
         if (gameManager != null && gameManager.currentState != GameManager.GameState.Planning) return;
         if (unit != null && (!unit.isPlayerTeam || unit.currentHealth <= 0)) return;
 
@@ -104,6 +115,7 @@ public class UnitDragHandler : MonoBehaviour
         if (unitCollider != null && unitCollider.Raycast(ray, out RaycastHit hit, 200f))
         {
             isDragging = true;
+            clickStartPosition = mousePos;
             dragYLevel = transform.position.y + 0.35f;
         }
     }
@@ -112,29 +124,12 @@ public class UnitDragHandler : MonoBehaviour
     {
         if (gridManager == null) return;
 
-        Vector3 currentFlatPos = new Vector3(transform.position.x, 0, transform.position.z);
-        Vector3 bench0Pos = gridManager.GetBenchWorldPosition(0);
-
-        // Check if dragged backwards past the bench row (into the sell zone)
-        if (currentFlatPos.z < bench0Pos.z - sellZOffset)
-        {
-            if (!isHoveringSellZone)
-            {
-                gridManager.ResetAllTileColors(Color.white);
-                isHoveringSellZone = true;
-            }
-            return;
-        }
-        else
-        {
-            isHoveringSellZone = false;
-        }
-
         float minDistance = float.MaxValue;
         bool nearestIsBench = false;
         int nearestBX = -1, nearestBZ = -1, nearestBenchIdx = -1;
 
-        // Check player deployable board tiles
+        Vector3 currentFlatPos = new Vector3(transform.position.x, 0, transform.position.z);
+
         for (int x = 0; x < gridManager.width; x++)
         {
             for (int z = 0; z <= gridManager.maxPlayerRow; z++)
@@ -151,7 +146,6 @@ public class UnitDragHandler : MonoBehaviour
             }
         }
 
-        // Check bench tiles
         for (int i = 0; i < gridManager.benchSlotCount; i++)
         {
             Vector3 benchPos = gridManager.GetBenchWorldPosition(i);
@@ -204,7 +198,6 @@ public class UnitDragHandler : MonoBehaviour
         hoverBoardX = -1;
         hoverBoardZ = -1;
         hoverBenchIndex = -1;
-        isHoveringSellZone = false;
     }
 
     void HandleBoardDrop(int targetX, int targetZ)
@@ -221,7 +214,7 @@ public class UnitDragHandler : MonoBehaviour
         {
             if (gridManager.GetCurrentBoardUnitCount() >= gridManager.maxBoardUnits)
             {
-                Debug.LogWarning($"[Board Cap] Cannot deploy unit! Maximum board limit reached.");
+                Debug.LogWarning($"[Board Cap] Cannot deploy unit! Maximum board limit of {gridManager.maxBoardUnits} reached.");
                 SnapBack();
                 return;
             }
@@ -300,24 +293,6 @@ public class UnitDragHandler : MonoBehaviour
         }
 
         PlaceUnitOnBench(unit, targetBenchIndex);
-    }
-
-    private void SellCurrentUnit()
-    {
-        isDragging = false;
-
-        if (gridManager != null)
-        {
-            gridManager.ResetAllTileColors(Color.white);
-            gridManager.UnregisterUnit(unit);
-        }
-
-        if (EconomyManager.Instance != null && unit != null)
-        {
-            EconomyManager.Instance.SellUnit(unit.data);
-        }
-
-        Destroy(gameObject);
     }
 
     void PlaceUnitOnBoard(Unit targetUnit, int x, int z)

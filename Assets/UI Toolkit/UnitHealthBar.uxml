@@ -1,11 +1,11 @@
 <ui:UXML xmlns:ui="UnityEngine.UIElements">
     <ui:VisualElement name="root-anchor" style="flex-grow: 1; align-items: center; justify-content: center; overflow: visible;">
         
-        <!-- Stacked container: Stars & Floating Popups sit on top of Health Bar -->
+        <!-- Stacked container: Stars & Floating Popups on top, Health Bar in middle, Items underneath -->
         <ui:VisualElement style="align-items: center; justify-content: flex-end; overflow: visible;">
             
             <!-- Container where damage/heal labels spawn and float -->
-            <ui:VisualElement name="popup-container" style="position: absolute; bottom: 24px; width: 120px; height: 60px; overflow: visible;" />
+            <ui:VisualElement name="popup-container" style="position: absolute; bottom: 30px; width: 120px; height: 60px; overflow: visible;" />
 
             <!-- Overhead Star Badge -->
             <ui:Label name="star-badge-label" text="★" style="font-size: 13px; -unity-font-style: bold; color: rgb(189, 195, 199); margin-bottom: 2px; -unity-text-align: middle-center; display: none;" />
@@ -13,6 +13,13 @@
             <!-- Health Bar -->
             <ui:VisualElement name="bar-background" style="width: 80px; height: 10px; background-color: rgba(0, 0, 0, 0.75); border-radius: 3px; padding: 1px;">
                 <ui:VisualElement name="bar-fill" style="width: 100%; height: 100%; background-color: rgb(46, 204, 113); border-radius: 2px;" />
+            </ui:VisualElement>
+
+            <!-- Equipped Items Container (Up to 3 item icons directly beneath health bar) -->
+            <ui:VisualElement name="items-container" style="flex-direction: row; justify-content: center; align-items: center; margin-top: 3px; display: none;">
+                <ui:VisualElement name="overhead-item-0" style="width: 16px; height: 16px; margin: 0 1px; background-color: rgba(22, 26, 34, 0.9); border-width: 1px; border-color: rgb(80, 90, 105); border-radius: 2px; justify-content: center; align-items: center; display: none;" />
+                <ui:VisualElement name="overhead-item-1" style="width: 16px; height: 16px; margin: 0 1px; background-color: rgba(22, 26, 34, 0.9); border-width: 1px; border-color: rgb(80, 90, 105); border-radius: 2px; justify-content: center; align-items: center; display: none;" />
+                <ui:VisualElement name="overhead-item-2" style="width: 16px; height: 16px; margin: 0 1px; background-color: rgba(22, 26, 34, 0.9); border-width: 1px; border-color: rgb(80, 90, 105); border-radius: 2px; justify-content: center; align-items: center; display: none;" />
             </ui:VisualElement>
 
         </ui:VisualElement>

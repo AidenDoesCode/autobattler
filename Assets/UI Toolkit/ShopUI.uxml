@@ -1,131 +1,177 @@
 <ui:UXML xmlns:ui="UnityEngine.UIElements" xmlns:uie="UnityEditor.UIElements">
-    <ui:VisualElement name="shop-root" style="flex-grow: 1; justify-content: space-between; pointer-events: box-none;">
+    <ui:VisualElement name="shop-root" picking-mode="Ignore" style="flex-grow: 1; justify-content: space-between;">
         
         <!-- TOP HUD: Gold, Interest, Streaks, and Board Capacity -->
-        <ui:VisualElement name="top-bar" style="flex-direction: row; justify-content: space-between; align-items: center; padding: 10px 24px; background-color: rgba(18, 18, 22, 0.9); border-bottom-width: 2px; border-bottom-color: rgba(241, 196, 15, 0.4);">
-            <ui:VisualElement style="flex-direction: row; align-items: center;">
-                <ui:Label name="gold-label" text="10g" style="font-size: 24px; -unity-font-style: bold; color: rgb(241, 196, 15); margin-right: 20px;" />
-                <ui:Label name="interest-label" text="(+1g Interest)" style="font-size: 15px; color: rgb(189, 195, 199); margin-right: 20px;" />
-                <ui:Label name="streak-label" text="Streak: 0" style="font-size: 15px; color: rgb(52, 152, 219);" />
+        <ui:VisualElement name="top-bar" picking-mode="Position" style="flex-direction: row; justify-content: space-between; align-items: center; padding: 10px 24px; background-color: rgba(18, 18, 22, 0.9); border-bottom-width: 2px; border-bottom-color: rgba(241, 196, 15, 0.4);">
+            <ui:VisualElement picking-mode="Ignore" style="flex-direction: row; align-items: center;">
+                <ui:Label name="gold-label" picking-mode="Ignore" text="10g" style="font-size: 24px; -unity-font-style: bold; color: rgb(241, 196, 15); margin-right: 20px;" />
+                <ui:Label name="interest-label" picking-mode="Ignore" text="(+1g Interest)" style="font-size: 15px; color: rgb(189, 195, 199); margin-right: 20px;" />
+                <ui:Label name="streak-label" picking-mode="Ignore" text="Streak: 0" style="font-size: 15px; color: rgb(52, 152, 219);" />
             </ui:VisualElement>
 
-            <ui:Label name="board-cap-label" text="Units: 0 / 1" style="font-size: 18px; -unity-font-style: bold; color: rgb(255, 255, 255);" />
+            <ui:Label name="board-cap-label" picking-mode="Ignore" text="Units: 0 / 1" style="font-size: 18px; -unity-font-style: bold; color: rgb(255, 255, 255);" />
         </ui:VisualElement>
 
         <!-- COLLAPSIBLE SYNERGY SIDEBAR (Upper-Left Overlay) -->
-        <ui:VisualElement name="synergy-sidebar" style="position: absolute; left: 16px; top: 70px; width: 175px; background-color: rgba(22, 24, 30, 0.92); border-width: 1px; border-color: rgba(255, 255, 255, 0.15); border-radius: 6px; padding: 10px;">
-            <ui:VisualElement style="flex-direction: row; justify-content: space-between; align-items: center; margin-bottom: 8px;">
-                <ui:Label text="SYNERGIES" style="font-size: 13px; -unity-font-style: bold; color: rgb(241, 196, 15);" />
+        <ui:VisualElement name="synergy-sidebar" picking-mode="Position" style="position: absolute; left: 16px; top: 70px; width: 175px; background-color: rgba(22, 24, 30, 0.92); border-width: 1px; border-color: rgba(255, 255, 255, 0.15); border-radius: 6px; padding: 10px;">
+            <ui:VisualElement picking-mode="Ignore" style="flex-direction: row; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+                <ui:Label text="SYNERGIES" picking-mode="Ignore" style="font-size: 13px; -unity-font-style: bold; color: rgb(241, 196, 15);" />
                 <ui:Button name="toggle-synergy-btn" text="▼" style="width: 24px; height: 20px; font-size: 10px; background-color: transparent; color: white; border-width: 0;" />
             </ui:VisualElement>
 
-            <!-- Collapsible Body -->
-            <ui:VisualElement name="synergy-body" style="flex-direction: column;">
-                
-                <!-- Melee Trait Card -->
-                <ui:VisualElement name="melee-trait-box" style="margin-bottom: 6px; padding: 6px; background-color: rgba(40, 44, 52, 0.6); border-radius: 4px; border-left-width: 3px; border-left-color: rgb(120, 120, 120);">
-                    <ui:VisualElement style="flex-direction: row; justify-content: space-between;">
-                        <ui:Label text="Melee" style="font-size: 12px; -unity-font-style: bold; color: white;" />
-                        <ui:Label name="melee-count-label" text="0 / 2" style="font-size: 12px; color: rgb(180, 180, 180);" />
+            <ui:VisualElement name="synergy-body" picking-mode="Ignore" style="flex-direction: column;">
+                <ui:VisualElement name="melee-trait-box" picking-mode="Ignore" style="margin-bottom: 6px; padding: 6px; background-color: rgba(40, 44, 52, 0.6); border-radius: 4px; border-left-width: 3px; border-left-color: rgb(120, 120, 120);">
+                    <ui:VisualElement picking-mode="Ignore" style="flex-direction: row; justify-content: space-between;">
+                        <ui:Label text="Melee" picking-mode="Ignore" style="font-size: 12px; -unity-font-style: bold; color: white;" />
+                        <ui:Label name="melee-count-label" picking-mode="Ignore" text="0 / 2" style="font-size: 12px; color: rgb(180, 180, 180);" />
                     </ui:VisualElement>
-                    <ui:Label text="2: +200 HP | 4: +450 HP" style="font-size: 9px; color: rgb(160, 160, 160); margin-top: 2px;" />
+                    <ui:Label text="2: +200 HP | 4: +450 HP" picking-mode="Ignore" style="font-size: 9px; color: rgb(160, 160, 160); margin-top: 2px;" />
                 </ui:VisualElement>
 
-                <!-- Ranged Trait Card -->
-                <ui:VisualElement name="ranged-trait-box" style="margin-bottom: 6px; padding: 6px; background-color: rgba(40, 44, 52, 0.6); border-radius: 4px; border-left-width: 3px; border-left-color: rgb(120, 120, 120);">
-                    <ui:VisualElement style="flex-direction: row; justify-content: space-between;">
-                        <ui:Label text="Ranged" style="font-size: 12px; -unity-font-style: bold; color: white;" />
-                        <ui:Label name="ranged-count-label" text="0 / 2" style="font-size: 12px; color: rgb(180, 180, 180);" />
+                <ui:VisualElement name="ranged-trait-box" picking-mode="Ignore" style="margin-bottom: 6px; padding: 6px; background-color: rgba(40, 44, 52, 0.6); border-radius: 4px; border-left-width: 3px; border-left-color: rgb(120, 120, 120);">
+                    <ui:VisualElement picking-mode="Ignore" style="flex-direction: row; justify-content: space-between;">
+                        <ui:Label text="Ranged" picking-mode="Ignore" style="font-size: 12px; -unity-font-style: bold; color: white;" />
+                        <ui:Label name="ranged-count-label" picking-mode="Ignore" text="0 / 2" style="font-size: 12px; color: rgb(180, 180, 180);" />
                     </ui:VisualElement>
-                    <ui:Label text="2: +25% AS | 4: +55% AS" style="font-size: 9px; color: rgb(160, 160, 160); margin-top: 2px;" />
+                    <ui:Label text="2: +25% AS | 4: +55% AS" picking-mode="Ignore" style="font-size: 9px; color: rgb(160, 160, 160); margin-top: 2px;" />
                 </ui:VisualElement>
 
-                <!-- Support Trait Card -->
-                <ui:VisualElement name="support-trait-box" style="padding: 6px; background-color: rgba(40, 44, 52, 0.6); border-radius: 4px; border-left-width: 3px; border-left-color: rgb(120, 120, 120);">
-                    <ui:VisualElement style="flex-direction: row; justify-content: space-between;">
-                        <ui:Label text="Support" style="font-size: 12px; -unity-font-style: bold; color: white;" />
-                        <ui:Label name="support-count-label" text="0 / 2" style="font-size: 12px; color: rgb(180, 180, 180);" />
+                <ui:VisualElement name="support-trait-box" picking-mode="Ignore" style="padding: 6px; background-color: rgba(40, 44, 52, 0.6); border-radius: 4px; border-left-width: 3px; border-left-color: rgb(120, 120, 120);">
+                    <ui:VisualElement picking-mode="Ignore" style="flex-direction: row; justify-content: space-between;">
+                        <ui:Label text="Support" picking-mode="Ignore" style="font-size: 12px; -unity-font-style: bold; color: white;" />
+                        <ui:Label name="support-count-label" picking-mode="Ignore" text="0 / 2" style="font-size: 12px; color: rgb(180, 180, 180);" />
                     </ui:VisualElement>
-                    <ui:Label text="2: 4s Area Heal (15% HP)" style="font-size: 9px; color: rgb(160, 160, 160); margin-top: 2px;" />
+                    <ui:Label text="2: 4s Area Heal (15% HP)" picking-mode="Ignore" style="font-size: 9px; color: rgb(160, 160, 160); margin-top: 2px;" />
                 </ui:VisualElement>
-
             </ui:VisualElement>
         </ui:VisualElement>
 
-        <!-- BOTTOM DOCK: Shop Controls & Offers -->
-        <ui:VisualElement name="shop-panel" style="position: relative; background-color: rgba(18, 18, 24, 0.96); border-top-width: 2px; border-top-color: rgba(255, 255, 255, 0.15); padding: 12px 20px; flex-direction: row; align-items: center; justify-content: space-between;">
+        <!-- ITEM TRAY BENCH (Right Middle) -->
+        <ui:VisualElement name="item-tray-bar" picking-mode="Ignore" style="position: absolute; right: 16px; top: 35%; flex-direction: column; align-items: center; background-color: rgba(18, 20, 26, 0.92); border-width: 1px; border-color: rgba(255, 255, 255, 0.2); border-radius: 6px; padding: 8px 6px;">
+            <ui:Label text="ITEMS" picking-mode="Ignore" style="font-size: 12px; -unity-font-style: bold; color: rgb(241, 196, 15); margin-bottom: 6px;" />
             
-            <!-- LEFT CONTROLS: Level, XP Status, Buy XP, and Reroll -->
-            <ui:VisualElement name="shop-controls-left" style="flex-direction: column; justify-content: center; align-items: center; margin-right: 16px; width: 140px;">
-                <ui:VisualElement name="xp-info-container" style="flex-direction: row; justify-content: space-between; width: 100%; margin-bottom: 6px;">
-                    <ui:Label name="level-label" text="Lvl 1" style="font-size: 14px; -unity-font-style: bold; color: rgb(241, 196, 15);" />
-                    <ui:Label name="xp-label" text="0 / 2 XP" style="font-size: 13px; color: rgb(189, 195, 199);" />
+            <ui:VisualElement picking-mode="Ignore" style="flex-direction: row;">
+                <ui:VisualElement name="item-slot-0" picking-mode="Position" style="width: 38px; height: 38px; margin: 3px; background-color: rgb(32, 35, 42); border-width: 1px; border-color: rgb(80, 90, 105); border-radius: 4px; justify-content: center; align-items: center;" />
+                <ui:VisualElement name="item-slot-1" picking-mode="Position" style="width: 38px; height: 38px; margin: 3px; background-color: rgb(32, 35, 42); border-width: 1px; border-color: rgb(80, 90, 105); border-radius: 4px; justify-content: center; align-items: center;" />
+            </ui:VisualElement>
+
+            <ui:VisualElement picking-mode="Ignore" style="flex-direction: row;">
+                <ui:VisualElement name="item-slot-2" picking-mode="Position" style="width: 38px; height: 38px; margin: 3px; background-color: rgb(32, 35, 42); border-width: 1px; border-color: rgb(80, 90, 105); border-radius: 4px; justify-content: center; align-items: center;" />
+                <ui:VisualElement name="item-slot-3" picking-mode="Position" style="width: 38px; height: 38px; margin: 3px; background-color: rgb(32, 35, 42); border-width: 1px; border-color: rgb(80, 90, 105); border-radius: 4px; justify-content: center; align-items: center;" />
+            </ui:VisualElement>
+
+            <ui:VisualElement picking-mode="Ignore" style="flex-direction: row;">
+                <ui:VisualElement name="item-slot-4" picking-mode="Position" style="width: 38px; height: 38px; margin: 3px; background-color: rgb(32, 35, 42); border-width: 1px; border-color: rgb(80, 90, 105); border-radius: 4px; justify-content: center; align-items: center;" />
+                <ui:VisualElement name="item-slot-5" picking-mode="Position" style="width: 38px; height: 38px; margin: 3px; background-color: rgb(32, 35, 42); border-width: 1px; border-color: rgb(80, 90, 105); border-radius: 4px; justify-content: center; align-items: center;" />
+            </ui:VisualElement>
+
+            <ui:VisualElement picking-mode="Ignore" style="flex-direction: row;">
+                <ui:VisualElement name="item-slot-6" picking-mode="Position" style="width: 38px; height: 38px; margin: 3px; background-color: rgb(32, 35, 42); border-width: 1px; border-color: rgb(80, 90, 105); border-radius: 4px; justify-content: center; align-items: center;" />
+                <ui:VisualElement name="item-slot-7" picking-mode="Position" style="width: 38px; height: 38px; margin: 3px; background-color: rgb(32, 35, 42); border-width: 1px; border-color: rgb(80, 90, 105); border-radius: 4px; justify-content: center; align-items: center;" />
+            </ui:VisualElement>
+        </ui:VisualElement>
+
+        <!-- UNIT / ITEM INSPECTION CARD POPUP (With Auto-Wrapping Labels) -->
+        <ui:VisualElement name="inspection-modal" picking-mode="Position" style="position: absolute; right: 220px; top: 30%; width: 270px; background-color: rgba(18, 20, 26, 0.98); border-width: 2px; border-color: rgb(241, 196, 15); border-radius: 10px; padding: 16px; display: none;">
+            
+            <!-- Header: Title, Subtitle, Close Button -->
+            <ui:VisualElement picking-mode="Ignore" style="flex-direction: row; justify-content: space-between; align-items: flex-start; border-bottom-width: 1px; border-bottom-color: rgba(255, 255, 255, 0.2); padding-bottom: 8px; margin-bottom: 12px;">
+                <ui:VisualElement picking-mode="Ignore" style="flex-direction: column; flex-grow: 1; margin-right: 8px;">
+                    <ui:Label name="inspect-title" text="Unit Name" style="font-size: 19px; -unity-font-style: bold; color: rgb(255, 255, 255); margin-bottom: 2px; white-space: normal;" />
+                    <ui:Label name="inspect-subtitle" text="★★★ • Melee" style="font-size: 14px; -unity-font-style: bold; color: rgb(241, 196, 15); white-space: normal;" />
+                </ui:VisualElement>
+                <ui:Button name="inspect-close-btn" text="✕" style="width: 28px; height: 28px; background-color: transparent; border-width: 0; color: rgb(189, 195, 199); font-size: 16px; -unity-font-style: bold; flex-shrink: 0;" />
+            </ui:VisualElement>
+
+            <!-- Stats Container -->
+            <ui:VisualElement name="inspect-stats-box" picking-mode="Ignore" style="flex-direction: column; margin-bottom: 12px;">
+                <ui:Label name="inspect-stat-hp" text="HP: 500 / 500" style="font-size: 15px; -unity-font-style: bold; color: rgb(46, 204, 113); margin-bottom: 5px; white-space: normal;" />
+                <ui:Label name="inspect-stat-ad" text="Attack: 50" style="font-size: 15px; -unity-font-style: bold; color: rgb(231, 76, 60); margin-bottom: 5px; white-space: normal;" />
+                <ui:Label name="inspect-stat-extra" text="Speed / Reduct" style="font-size: 13px; color: rgb(52, 152, 219); margin-bottom: 2px; white-space: normal;" />
+            </ui:VisualElement>
+
+            <!-- Description (Used primarily for item cards) -->
+            <ui:Label name="inspect-desc-label" text="Item description..." style="font-size: 13px; color: rgb(220, 225, 230); white-space: normal; line-height: 18px; margin-bottom: 12px; display: none;" />
+
+            <!-- Equipped Items Section -->
+            <ui:VisualElement name="inspect-items-box" picking-mode="Ignore" style="border-top-width: 1px; border-top-color: rgba(255, 255, 255, 0.2); padding-top: 10px;">
+                <ui:Label text="EQUIPPED ITEMS (0/3)" name="inspect-items-header" style="font-size: 12px; -unity-font-style: bold; color: rgb(200, 205, 215); margin-bottom: 6px;" />
+                <ui:VisualElement name="inspect-items-list" picking-mode="Ignore" style="flex-direction: column;" />
+            </ui:VisualElement>
+        </ui:VisualElement>
+
+        <!-- FLOATING CURSOR DRAG GHOST -->
+        <ui:VisualElement name="dragged-item-ghost" picking-mode="Ignore" style="position: absolute; width: 44px; height: 44px; translate: -50% -50%; background-color: rgba(45, 52, 65, 0.95); border-width: 2px; border-radius: 6px; justify-content: center; align-items: center; display: none;">
+            <ui:Label name="ghost-label" picking-mode="Ignore" text="SW" style="font-size: 13px; -unity-font-style: bold; color: rgb(255, 255, 255);" />
+        </ui:VisualElement>
+
+        <!-- BOTTOM DOCK: Shop Controls & Offers -->
+        <ui:VisualElement name="shop-panel" picking-mode="Position" style="position: relative; background-color: rgba(18, 18, 24, 0.96); border-top-width: 2px; border-top-color: rgba(255, 255, 255, 0.15); padding: 12px 20px; flex-direction: row; align-items: center; justify-content: space-between;">
+            
+            <ui:VisualElement name="shop-controls-left" picking-mode="Ignore" style="flex-direction: column; justify-content: center; align-items: center; margin-right: 16px; width: 140px;">
+                <ui:VisualElement name="xp-info-container" picking-mode="Ignore" style="flex-direction: row; justify-content: space-between; width: 100%; margin-bottom: 6px;">
+                    <ui:Label name="level-label" picking-mode="Ignore" text="Lvl 1" style="font-size: 14px; -unity-font-style: bold; color: rgb(241, 196, 15);" />
+                    <ui:Label name="xp-label" picking-mode="Ignore" text="0 / 2 XP" style="font-size: 13px; color: rgb(189, 195, 199);" />
                 </ui:VisualElement>
 
                 <ui:Button name="buy-xp-btn" text="Buy XP (4g)" style="width: 100%; height: 38px; margin-bottom: 8px; background-color: rgb(41, 128, 185); color: rgb(255, 255, 255); -unity-font-style: bold; border-radius: 4px; border-width: 0;" />
                 <ui:Button name="reroll-btn" text="Reroll (2g)" style="width: 100%; height: 38px; background-color: rgb(211, 84, 0); color: rgb(255, 255, 255); -unity-font-style: bold; border-radius: 4px; border-width: 0;" />
             </ui:VisualElement>
 
-            <!-- CENTER OFFERS: 5 Shop Unit Cards -->
-            <ui:VisualElement name="card-container" style="flex-direction: row; flex-grow: 1; justify-content: center;">
-                
+            <ui:VisualElement name="card-container" picking-mode="Ignore" style="flex-direction: row; flex-grow: 1; justify-content: center;">
                 <ui:VisualElement name="card-slot-0" style="width: 130px; height: 110px; margin: 0 6px; padding: 6px; background-color: rgb(32, 35, 42); border-width: 2px; border-color: rgb(70, 80, 95); border-radius: 6px; justify-content: space-between;">
-                    <ui:VisualElement style="flex-direction: row; justify-content: space-between;">
-                        <ui:Label name="unit-name" text="Unit" style="font-size: 13px; -unity-font-style: bold; color: rgb(255, 255, 255);" />
-                        <ui:Label name="unit-cost" text="1g" style="font-size: 13px; -unity-font-style: bold; color: rgb(241, 196, 15);" />
+                    <ui:VisualElement picking-mode="Ignore" style="flex-direction: row; justify-content: space-between;">
+                        <ui:Label name="unit-name" picking-mode="Ignore" text="Unit" style="font-size: 13px; -unity-font-style: bold; color: rgb(255, 255, 255);" />
+                        <ui:Label name="unit-cost" picking-mode="Ignore" text="1g" style="font-size: 13px; -unity-font-style: bold; color: rgb(241, 196, 15);" />
                     </ui:VisualElement>
-                    <ui:Label name="unit-archetype" text="Melee" style="font-size: 11px; color: rgb(160, 175, 190); align-self: center;" />
+                    <ui:Label name="unit-archetype" picking-mode="Ignore" text="Melee" style="font-size: 11px; color: rgb(160, 175, 190); align-self: center;" />
                     <ui:Button name="buy-card-btn" text="Buy" style="height: 26px; font-size: 12px; -unity-font-style: bold; background-color: rgb(39, 174, 96); color: white; border-radius: 3px; border-width: 0;" />
                 </ui:VisualElement>
 
                 <ui:VisualElement name="card-slot-1" style="width: 130px; height: 110px; margin: 0 6px; padding: 6px; background-color: rgb(32, 35, 42); border-width: 2px; border-color: rgb(70, 80, 95); border-radius: 6px; justify-content: space-between;">
-                    <ui:VisualElement style="flex-direction: row; justify-content: space-between;">
-                        <ui:Label name="unit-name" text="Unit" style="font-size: 13px; -unity-font-style: bold; color: rgb(255, 255, 255);" />
-                        <ui:Label name="unit-cost" text="1g" style="font-size: 13px; -unity-font-style: bold; color: rgb(241, 196, 15);" />
+                    <ui:VisualElement picking-mode="Ignore" style="flex-direction: row; justify-content: space-between;">
+                        <ui:Label name="unit-name" picking-mode="Ignore" text="Unit" style="font-size: 13px; -unity-font-style: bold; color: rgb(255, 255, 255);" />
+                        <ui:Label name="unit-cost" picking-mode="Ignore" text="1g" style="font-size: 13px; -unity-font-style: bold; color: rgb(241, 196, 15);" />
                     </ui:VisualElement>
-                    <ui:Label name="unit-archetype" text="Melee" style="font-size: 11px; color: rgb(160, 175, 190); align-self: center;" />
+                    <ui:Label name="unit-archetype" picking-mode="Ignore" text="Melee" style="font-size: 11px; color: rgb(160, 175, 190); align-self: center;" />
                     <ui:Button name="buy-card-btn" text="Buy" style="height: 26px; font-size: 12px; -unity-font-style: bold; background-color: rgb(39, 174, 96); color: white; border-radius: 3px; border-width: 0;" />
                 </ui:VisualElement>
 
                 <ui:VisualElement name="card-slot-2" style="width: 130px; height: 110px; margin: 0 6px; padding: 6px; background-color: rgb(32, 35, 42); border-width: 2px; border-color: rgb(70, 80, 95); border-radius: 6px; justify-content: space-between;">
-                    <ui:VisualElement style="flex-direction: row; justify-content: space-between;">
-                        <ui:Label name="unit-name" text="Unit" style="font-size: 13px; -unity-font-style: bold; color: rgb(255, 255, 255);" />
-                        <ui:Label name="unit-cost" text="1g" style="font-size: 13px; -unity-font-style: bold; color: rgb(241, 196, 15);" />
+                    <ui:VisualElement picking-mode="Ignore" style="flex-direction: row; justify-content: space-between;">
+                        <ui:Label name="unit-name" picking-mode="Ignore" text="Unit" style="font-size: 13px; -unity-font-style: bold; color: rgb(255, 255, 255);" />
+                        <ui:Label name="unit-cost" picking-mode="Ignore" text="1g" style="font-size: 13px; -unity-font-style: bold; color: rgb(241, 196, 15);" />
                     </ui:VisualElement>
-                    <ui:Label name="unit-archetype" text="Melee" style="font-size: 11px; color: rgb(160, 175, 190); align-self: center;" />
+                    <ui:Label name="unit-archetype" picking-mode="Ignore" text="Melee" style="font-size: 11px; color: rgb(160, 175, 190); align-self: center;" />
                     <ui:Button name="buy-card-btn" text="Buy" style="height: 26px; font-size: 12px; -unity-font-style: bold; background-color: rgb(39, 174, 96); color: white; border-radius: 3px; border-width: 0;" />
                 </ui:VisualElement>
 
                 <ui:VisualElement name="card-slot-3" style="width: 130px; height: 110px; margin: 0 6px; padding: 6px; background-color: rgb(32, 35, 42); border-width: 2px; border-color: rgb(70, 80, 95); border-radius: 6px; justify-content: space-between;">
-                    <ui:VisualElement style="flex-direction: row; justify-content: space-between;">
-                        <ui:Label name="unit-name" text="Unit" style="font-size: 13px; -unity-font-style: bold; color: rgb(255, 255, 255);" />
-                        <ui:Label name="unit-cost" text="1g" style="font-size: 13px; -unity-font-style: bold; color: rgb(241, 196, 15);" />
+                    <ui:VisualElement picking-mode="Ignore" style="flex-direction: row; justify-content: space-between;">
+                        <ui:Label name="unit-name" picking-mode="Ignore" text="Unit" style="font-size: 13px; -unity-font-style: bold; color: rgb(255, 255, 255);" />
+                        <ui:Label name="unit-cost" picking-mode="Ignore" text="1g" style="font-size: 13px; -unity-font-style: bold; color: rgb(241, 196, 15);" />
                     </ui:VisualElement>
-                    <ui:Label name="unit-archetype" text="Melee" style="font-size: 11px; color: rgb(160, 175, 190); align-self: center;" />
+                    <ui:Label name="unit-archetype" picking-mode="Ignore" text="Melee" style="font-size: 11px; color: rgb(160, 175, 190); align-self: center;" />
                     <ui:Button name="buy-card-btn" text="Buy" style="height: 26px; font-size: 12px; -unity-font-style: bold; background-color: rgb(39, 174, 96); color: white; border-radius: 3px; border-width: 0;" />
                 </ui:VisualElement>
 
                 <ui:VisualElement name="card-slot-4" style="width: 130px; height: 110px; margin: 0 6px; padding: 6px; background-color: rgb(32, 35, 42); border-width: 2px; border-color: rgb(70, 80, 95); border-radius: 6px; justify-content: space-between;">
-                    <ui:VisualElement style="flex-direction: row; justify-content: space-between;">
-                        <ui:Label name="unit-name" text="Unit" style="font-size: 13px; -unity-font-style: bold; color: rgb(255, 255, 255);" />
-                        <ui:Label name="unit-cost" text="1g" style="font-size: 13px; -unity-font-style: bold; color: rgb(241, 196, 15);" />
+                    <ui:VisualElement picking-mode="Ignore" style="flex-direction: row; justify-content: space-between;">
+                        <ui:Label name="unit-name" picking-mode="Ignore" text="Unit" style="font-size: 13px; -unity-font-style: bold; color: rgb(255, 255, 255);" />
+                        <ui:Label name="unit-cost" picking-mode="Ignore" text="1g" style="font-size: 13px; -unity-font-style: bold; color: rgb(241, 196, 15);" />
                     </ui:VisualElement>
-                    <ui:Label name="unit-archetype" text="Melee" style="font-size: 11px; color: rgb(160, 175, 190); align-self: center;" />
+                    <ui:Label name="unit-archetype" picking-mode="Ignore" text="Melee" style="font-size: 11px; color: rgb(160, 175, 190); align-self: center;" />
                     <ui:Button name="buy-card-btn" text="Buy" style="height: 26px; font-size: 12px; -unity-font-style: bold; background-color: rgb(39, 174, 96); color: white; border-radius: 3px; border-width: 0;" />
                 </ui:VisualElement>
-
             </ui:VisualElement>
 
-            <!-- RIGHT CONTROLS: Lock Shop Button -->
-            <ui:VisualElement name="shop-controls-right" style="margin-left: 16px; width: 80px; align-items: center; justify-content: center;">
+            <ui:VisualElement name="shop-controls-right" picking-mode="Ignore" style="margin-left: 16px; width: 80px; align-items: center; justify-content: center;">
                 <ui:Button name="lock-shop-btn" text="Lock" style="width: 80px; height: 84px; background-color: rgb(45, 52, 60); color: rgb(236, 240, 241); font-size: 14px; -unity-font-style: bold; border-radius: 6px; border-width: 2px; border-color: rgb(70, 80, 95);" />
             </ui:VisualElement>
 
-            <!-- DYNAMIC SELL BANNER OVERLAY -->
-            <ui:VisualElement name="sell-banner" style="position: absolute; left: 0; right: 0; top: 0; bottom: 0; background-color: rgba(192, 57, 43, 0.95); justify-content: center; align-items: center; display: none;">
-                <ui:Label name="sell-label" text="DROP HERE OR PRESS 'E' TO SELL" style="font-size: 20px; -unity-font-style: bold; color: rgb(255, 255, 255);" />
+            <ui:VisualElement name="sell-banner" picking-mode="Position" style="position: absolute; left: 0; right: 0; top: 0; bottom: 0; background-color: rgba(192, 57, 43, 0.95); justify-content: center; align-items: center; display: none;">
+                <ui:Label name="sell-label" picking-mode="Ignore" text="DROP HERE OR PRESS 'E' TO SELL" style="font-size: 20px; -unity-font-style: bold; color: rgb(255, 255, 255);" />
             </ui:VisualElement>
-
         </ui:VisualElement>
 
     </ui:VisualElement>
